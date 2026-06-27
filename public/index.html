@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess Analyzer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="logo">♟ Chess Analyzer</div>
+      <div class="header-controls">
+        <select id="difficulty" title="Bot Difficulty">
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced" selected>Advanced</option>
+          <option value="master">Master</option>
+        </select>
+        <select id="playerColor" title="Play as">
+          <option value="w">Play as White</option>
+          <option value="b">Play as Black</option>
+        </select>
+        <button id="newGame"      class="btn btn-primary">New Game</button>
+        <button id="flipBoard"    class="btn">Flip Board</button>
+        <button id="undoMove"     class="btn">⟵ Undo</button>
+        <button id="uploadPgnBtn" class="btn btn-upload">⬆ Upload PGN</button>
+        <button id="settingsBtn"  class="btn btn-settings">⚙ Settings</button>
+        <input type="file" id="pgnFileInput" accept=".pgn,.txt" hidden>
+      </div>
+    </header>
+
+    <!-- Review Mode Bar -->
+    <div id="reviewBar" class="review-bar hidden">
+      <span class="review-label">Review Mode</span>
+      <div class="review-nav">
+        <button id="reviewFirst" class="nav-btn" title="First move">⏮</button>
+        <button id="reviewPrev"  class="nav-btn" title="Previous move">‹</button>
+        <span   id="reviewCounter" class="review-counter">0 / 0</span>
+        <button id="reviewNext"  class="nav-btn" title="Next move">›</button>
+        <button id="reviewLast"  class="nav-btn" title="Last move">⏭</button>
+      </div>
+      <button id="analyzeAllBtn" class="btn btn-primary">Analyze All Moves</button>
+      <button id="exitReviewBtn" class="btn">Exit Review</button>
+    </div>
+
+    <main class="main">
+      <div class="board-section">
+        <div class="player-info top">
+          <span class="player-name" id="topPlayerName">Bot</span>
+          <span class="engine-badge" id="engineStatus">⚙ Loading engine…</span>
+        </div>
+        <div class="board-wrap">
+          <div id="board" class="board"></div>
+        </div>
+        <div class="arrow-legend">
+          Right-click drag to draw arrows &nbsp;·&nbsp;
+          <span class="leg green">■</span> default &nbsp;
+          <span class="leg blue">■</span> Shift &nbsp;
+          <span class="leg red">■</span> Ctrl &nbsp;
+          <span class="leg orange">■</span> Alt &nbsp;·&nbsp;
+          Right-click square to highlight &nbsp;·&nbsp; Left-click to clear
+        </div>
+        <div class="player-info bottom">
+          <span class="player-name" id="bottomPlayerName">You</span>
+          <div class="bottom-right">
+            <button id="hintBtn" class="btn btn-hint">💡 Hint</button>
+            <span id="statusText" class="status-text">Setting up…</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar">
+
+        <!-- BANKROLL PANEL -->
+        <div class="bankroll-panel" id="bankrollPanel">
+          <div class="panel-header">💰 Match Bankroll <span class="jackpot-badge">🏆 $1,000 Jackpot</span></div>
+          <div class="bankroll-versus">
+            <div class="bk-side player-side">
+              <div class="bk-label">You</div>
+              <div class="bk-amount" id="playerBalance">$1,000</div>
+              <div class="bk-delta hidden" id="playerDelta"></div>
+            </div>
+            <div class="bk-center">
+              <div class="bk-vs">VS</div>
+              <div class="bonus-unlock" id="bonusUnlock">
+                <div class="unlock-label">Bonuses unlock</div>
+                <div class="unlock-pips" id="unlockPips">
+                  <span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span>
+                </div>
+                <div class="unlock-count" id="unlockCount">5 moves left</div>
+              </div>
+            </div>
+            <div class="bk-side bot-side">
+              <div class="bk-label">Bot</div>
+              <div class="bk-amount" id="botBalance">$1,000</div>
+              <div class="bk-delta hidden" id="botDelta"></div>
+            </div>
+          </div>
+          <div class="bankroll-rules">
+            <span class="rule brilliant">★ Brilliant +$200</span>
+            <span class="rule great">✦ Great +$100</span>
+            <span class="rule good">• Good +$20</span>
+            <span class="rule bad">✕ Bad move −$50</span>
+          </div>
+        </div>
+
+        <!-- BEST MOVE PANEL -->
+        <div class="best-move-panel" id="bestMovePanel">
+          <div class="panel-header">Best Move</div>
+          <div class="best-move-content" id="bestMoveContent">
+            <span class="best-move-badge" id="bestMoveBadge">—</span>
+            <span class="best-move-tip">Click <strong>💡 Hint</strong> to highlight<br>the best move on the board</span>
+          </div>
+        </div>
+
+        <div class="analysis-panel">
+          <div class="panel-header">Last Move Analysis</div>
+          <div id="lastMoveAnalysis" class="analysis-content">
+            <div class="analysis-placeholder">Make a move to see analysis</div>
+          </div>
+        </div>
+        <div class="move-history-panel">
+          <div class="panel-header">
+            Move History
+            <span id="analyzeProgress" class="analyze-progress hidden"></span>
+          </div>
+          <div id="moveHistory" class="move-history"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Promotion Modal -->
+  <div id="promotionModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-title">Promote pawn to:</div>
+      <div class="promo-pieces" id="promoPieces"></div>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div id="gameOverModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-title"   id="gameOverTitle"></div>
+      <div class="modal-sub"     id="gameOverSub"></div>
+      <div class="modal-balance" id="gameOverBalance"></div>
+      <div class="modal-earnings" id="gameOverEarnings"></div>
+      <button class="btn btn-primary" id="gameOverNewGame">Play Again</button>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal-overlay hidden">
+    <div class="modal settings-modal">
+      <div class="modal-title">⚙ Settings</div>
+      <div class="settings-grid">
+        <div class="setting-row">
+          <label class="setting-label">🔊 Sound</label>
+          <label class="toggle"><input type="checkbox" id="settingSound" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <label class="setting-label">🎵 Volume</label>
+          <input type="range" id="settingVolume" min="0" max="100" value="70" class="vol-slider">
+        </div>
+        <div class="setting-row">
+          <label class="setting-label">⚡ Premoves</label>
+          <label class="toggle"><input type="checkbox" id="settingPremove" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <label class="setting-label">♛ Auto-queen</label>
+          <label class="toggle"><input type="checkbox" id="settingAutoQueen" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <label class="setting-label">📐 Coordinates</label>
+          <label class="toggle"><input type="checkbox" id="settingCoords" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <label class="setting-label">✨ Move hints</label>
+          <label class="toggle"><input type="checkbox" id="settingMoveHints" checked><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="settingsClose" style="margin-top:16px;width:100%">Done</button>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
