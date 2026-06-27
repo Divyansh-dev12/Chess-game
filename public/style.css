@@ -132,20 +132,30 @@ input::placeholder { color:var(--text-dim); }
 .sq-label-file { position:absolute; top:2px; right:3px; font-size:.57rem; font-weight:700; pointer-events:none; color:var(--dark-sq); }
 .square.dark .sq-label-file { color:var(--light-sq); }
 
-/* ── PIECES (SVG img) ── */
-.piece-img {
-  width: 84%; height: 84%;
-  pointer-events: none; display: block; margin: auto;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,.55));
-}
-/* Legacy unicode (captured display etc) */
+/* ── PIECES (Unicode, hard white / hard black) ── */
 .piece {
-  font-size: clamp(22px, 5vw, 44px);
+  font-size: clamp(26px, 5.8vw, 52px);
   line-height: 1; pointer-events: none; display: block; text-align: center;
   font-family: 'Segoe UI Symbol','Apple Symbols','Noto Chess',system-ui;
+  user-select: none;
 }
-.piece.white { color:#fff; text-shadow: 0 0 2px #000, 1px 1px 0 #000, -1px -1px 0 #000; }
-.piece.black { color:#000; text-shadow: 0 0 2px rgba(255,255,255,.5); }
+/* Solid white fill — 1-px black outline on all sides so readable on any square */
+.piece.white {
+  color: #ffffff;
+  text-shadow:
+    -1px -1px 0 #000,  1px -1px 0 #000,
+    -1px  1px 0 #000,  1px  1px 0 #000,
+     0   -1px 0 #000,  0    1px 0 #000,
+    -1px  0   0 #000,  1px  0   0 #000,
+     0    0   3px rgba(0,0,0,.6);
+}
+/* Solid black fill — subtle white halo so readable on dark squares */
+.piece.black {
+  color: #000000;
+  text-shadow:
+    0 0 1px rgba(255,255,255,.55),
+    0 0 3px rgba(255,255,255,.25);
+}
 
 /* ── GAME CONTROLS ── */
 .game-controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:3px 0; }
@@ -409,10 +419,8 @@ input::placeholder { color:var(--text-dim); }
 .opening-sq.dark  { background:var(--dark-sq); }
 .opening-sq.last-move { outline:2px solid rgba(255,210,50,.6); outline-offset:-2px; }
 .opening-sq.op-selected { outline:3px solid var(--accent); outline-offset:-3px; }
-.opening-sq .piece-img { width:88%; height:88%; }
-/* Legacy unicode in mini boards */
-.opening-sq .wp { color:#ffffff; text-shadow:0 0 2px #000, 1px 1px 0 #000, -1px -1px 0 #000; font-size:clamp(10px,1.5vw,16px); }
-.opening-sq .bp { color:#000000; text-shadow:0 0 2px rgba(255,255,255,.4); font-size:clamp(10px,1.5vw,16px); }
+/* Pieces inside the opening practice board — inherit .piece but scaled down */
+.opening-sq .piece { font-size:clamp(11px,2vw,20px); }
 
 /* ── HISTORY REVIEW BTN ── */
 .hist-review-btn { font-size:.72rem; padding:3px 9px; background:#1a237e; color:#90caf9; border:none; border-radius:4px; cursor:pointer; white-space:nowrap; margin-top:3px; }

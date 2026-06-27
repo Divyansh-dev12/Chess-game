@@ -1,5 +1,4 @@
 import { Chess } from '/lib/chess.js';
-import { getPieceUri } from '/pieces.js';
 
 // Unicode fallback (used in mini boards / captured display)
 const UNI = {
@@ -733,10 +732,10 @@ class ChessGame {
         div.dataset.sq=sq;
 
         if(piece){
-          const img=document.createElement('img');
-          img.className='piece-img'; img.draggable=false;
-          img.src=getPieceUri(piece.color,piece.type);
-          div.appendChild(img);
+          const span=document.createElement('span');
+          span.className=`piece ${piece.color==='w'?'white':'black'}`;
+          span.textContent=UNI[piece.color+piece.type.toUpperCase()];
+          div.appendChild(span);
         }
 
         // Highlight last move
@@ -1132,11 +1131,10 @@ class ChessGame {
 
         const piece=this.chess.get(sq);
         if(piece){
-          const img=document.createElement('img');
-          img.className='piece-img';
-          img.src=getPieceUri(piece.color,piece.type);
-          img.draggable=false;
-          div.appendChild(img);
+          const span=document.createElement('span');
+          span.className=`piece ${piece.color==='w'?'white':'black'}`;
+          span.textContent=UNI[piece.color+piece.type.toUpperCase()];
+          div.appendChild(span);
         }
 
         if(this.lastMove&&(sq===this.lastMove.from||sq===this.lastMove.to)) div.classList.add('last-move');
