@@ -1,6 +1,7 @@
 import { Chess } from '/lib/chess.js';
+import { getPieceUri } from '/pieces.js';
 
-// ── PIECES ────────────────────────────────────────────────────────────────
+// Unicode fallback (used in mini boards / captured display)
 const UNI = {
   wK:'♔',wQ:'♕',wR:'♖',wB:'♗',wN:'♘',wP:'♙',
   bK:'♚',bQ:'♛',bR:'♜',bB:'♝',bN:'♞',bP:'♟'
@@ -34,25 +35,116 @@ const TIME_CONTROLS = [
   { cat:'Classical',    label:'30|0',  seconds:1800, increment:0 },
 ];
 
-// ── OPENINGS ──────────────────────────────────────────────────────────────
+// ── OPENINGS (with playable variations) ───────────────────────────────────
 const OPENINGS = [
-  { eco:'C60', name:'Ruy Lopez',          moves:'e4 e5 Nf3 Nc6 Bb5',        emoji:'🏰', desc:'One of the oldest and most respected openings. White attacks the knight defending e5 and aims for long-term pressure.', ideas:['Pressure the e5 pawn indirectly','Castle kingside early','Expand with d4 in the middlegame'], counters:['Morphy Defense (a6)','Berlin Defense (Nf6)','Schliemann (f5)'] },
-  { eco:'C50', name:'Italian Game',       moves:'e4 e5 Nf3 Nc6 Bc4',        emoji:'🍕', desc:'White targets f7 immediately with the bishop. Leads to open, tactical games. The Giuoco Piano and Evans Gambit are variations.', ideas:['Control center with pawns','Target f7 weakness','Develop quickly and attack'], counters:['Two Knights Defense','Giuoco Piano (Bc5)','Hungarian Defense (Be7)'] },
-  { eco:'B20', name:'Sicilian Defense',   moves:'e4 c5',                     emoji:'♟', desc:'The most popular defense to e4. Black fights for the center asymmetrically, leading to rich and complex positions.', ideas:['Counter-attack in the center','Create queenside play','Unbalance the position'], counters:['Open Sicilian (Nf3+d4)','Grand Prix Attack','Alapin (c3)'] },
-  { eco:'C00', name:'French Defense',     moves:'e4 e6',                     emoji:'🇫🇷', desc:'Black prepares d5 to contest the center. Creates solid but slightly cramped positions. White often gains space.', ideas:['Play d5 to challenge e4','Create counterplay on queenside','Target e4 with pieces'], counters:['Advance Variation (e5)','Exchange Variation','Tarrasch Variation (d4 d5 Nd2)'] },
-  { eco:'B10', name:'Caro-Kann Defense',  moves:'e4 c6',                     emoji:'🛡', desc:'Solid defense where Black prepares d5 with c6 support. Less space but fewer weaknesses than French.', ideas:['Play d5 with c6 support','Develop the c8-bishop outside the pawn chain','Solid and positional'], counters:['Advance Variation','Classical (Nc3)','Panov Attack (c4)'] },
-  { eco:'D06', name:"Queen's Gambit",     moves:'d4 d5 c4',                  emoji:'♛', desc:"White offers a pawn to gain central control. One of the most classical openings. Black can accept (QGA) or decline (QGD).", ideas:['Gain central control','Develop queenside pieces','Create minority attack on queenside'], counters:['QGD (e6)','QGA (dxc4)','Slav Defense (c6)'] },
-  { eco:'E60', name:"King's Indian Defense", moves:'d4 Nf6 c4 g6',           emoji:'⚔', desc:"Black allows White to build a big center then counterattacks it. Beloved by Fischer and Kasparov. Razor-sharp positions.", ideas:['Allow White center to overextend','Counterattack with e5 or c5','Create kingside attack'], counters:["Classical Variation (Nc3 Bg2)",'Sämisch Variation (f3)','Averbakh System'] },
-  { eco:'E20', name:'Nimzo-Indian Defense', moves:'d4 Nf6 c4 e6 Nc3 Bb4',   emoji:'🔮', desc:"Black pins the knight and disrupts White's center plans. Named after Aron Nimzowitsch. Highly flexible and powerful.", ideas:['Pin c3 knight to weaken pawns','Control e4 square','Create doubled c-pawns for White'], counters:['Classical (Qc2)','Rubinstein (e3)','Sämisch (a3)'] },
-  { eco:'E00', name:'Catalan Opening',    moves:'d4 Nf6 c4 e6 g3',          emoji:'🗺', desc:"White fianchettoes the bishop to put long-term pressure on d5 and c6. Strategic and subtle.", ideas:['Pressure d5 with fianchettoed bishop','Build solid pawn structure','Open the c-file for pressure'], counters:['Open Catalan (dxc4)','Closed Catalan (d5)'] },
-  { eco:'A10', name:'English Opening',    moves:'c4',                         emoji:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', desc:"White controls d5 without advancing e4 first. Very flexible — can transpose to many structures. Championed by Botvinnik.", ideas:['Control d5 from a distance','Build flexible pawn structure','Avoid forcing variations early'], counters:['Symmetrical English (c5)','Reversed Sicilian (e5)'] },
-  { eco:'D00', name:'London System',      moves:'d4 d5 Bf4',                 emoji:'🔒', desc:"A solid setup for White requiring little memorization. White builds a strong pawn structure and develops consistently.", ideas:['Solid pyramid structure','Develop bishop before c3','Avoid early pawn weaknesses'], counters:['Set up ...e6 and ...Bd6','Play ...c5 to challenge center'] },
-  { eco:'C30', name:"King's Gambit",      moves:'e4 e5 f4',                  emoji:'🗡', desc:"One of the oldest gambits. White sacrifices a pawn for rapid development and kingside attack. Highly tactical.", ideas:['Rapid development after pawn grab','Control e5 and attack f7','Create open f-file for rook'], counters:["King's Gambit Accepted (exf4)",'Falkbeer Counter-Gambit (d5)'] },
-  { eco:'C44', name:'Scotch Game',        moves:'e4 e5 Nf3 Nc6 d4',         emoji:'🥃', desc:"White immediately opens the center. Kasparov revived this opening at the top level. Leads to direct, energetic play.", ideas:['Open center immediately','Create passed d-pawn potential','Attack with c3 and Nxd4'], counters:['Scotch Gambit (Bc5)','Mieses Variation (Qh4)','Schmidt Variation (Nf6)'] },
-  { eco:'C46', name:'Vienna Game',        moves:'e4 e5 Nc3',                 emoji:'🎻', desc:"A solid and aggressive alternative to 2.Nf3. White delays moving the king knight to keep options open.", ideas:['Control d5 with knight','Set up Bc4 + Qh5 attack','Flexible center control'], counters:['Vienna Gambit (f4)','Falkbeer (Nf6)'] },
-  { eco:'C42', name:"Petrov's Defense",   moves:'e4 e5 Nf3 Nf6',            emoji:'🏛', desc:"A rock-solid defense where Black mirrors White's development. Leads to balanced endgames. Highly respected.", ideas:['Symmetry leads to equality','Avoid tactical complications','Solid defense without weaknesses'], counters:['Stafford Gambit','Three Knights (Nc3)'] },
-  { eco:'A80', name:'Dutch Defense',      moves:'d4 f5',                     emoji:'🌷', desc:"Black immediately seizes e4 with the f-pawn. Aggressive and double-edged. Creates attacking kingside chances.", ideas:['Control e4 immediately','Create kingside attack','Dynamic imbalanced play'], counters:['Leningrad Dutch (g6)','Stonewall Dutch (e6+d5+c6)'] },
+  {
+    eco:'C60', name:'Ruy Lopez', emoji:'🏰',
+    desc:'One of the oldest and most respected openings. White attacks the knight defending e5.',
+    ideas:['Pressure e5 pawn indirectly','Castle kingside early','Expand with d4'],
+    variations:[
+      { name:'Morphy Defense',  moves:'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O', tip:'Most popular: ...a6 kicks the bishop, Black gets solid setup.' },
+      { name:'Berlin Defense',  moves:'e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 d4 Nd6 Bxc6 dxc6 dxe5 Nf5', tip:'The "Berlin Wall" — solid and drawish at top level.' },
+      { name:'Schliemann',      moves:'e4 e5 Nf3 Nc6 Bb5 f5 Nc3 fxe4 Nxe4 d5 Nxe5 dxe4 Nxc6 Qd5', tip:'Sharp counter-gambit for Black: f5 immediately.' },
+      { name:'Exchange Variation', moves:'e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 Nxe5 Qd4 Nf3 Qxe4+', tip:'White trades bishop for knight, aiming for endgame advantage.' },
+    ]
+  },
+  {
+    eco:'C50', name:'Italian Game', emoji:'🍕',
+    desc:'White targets f7 with Bc4. Leads to open, tactical games.',
+    ideas:['Control center','Target f7','Develop quickly'],
+    variations:[
+      { name:'Giuoco Piano',    moves:'e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d4 exd4 cxd4 Bb4+ Bd2 Bxd2+ Nbxd2', tip:'Quiet opening — both sides develop naturally.' },
+      { name:'Evans Gambit',    moves:'e4 e5 Nf3 Nc6 Bc4 Bc5 b4 Bxb4 c3 Ba5 d4 exd4 O-O dxc3 Qb3', tip:'Romantic gambit! b4 sacrifices a pawn for huge development.' },
+      { name:'Two Knights Defense', moves:'e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Na5 Bb5+ c6 dxc6 bxc6 Be2 h6', tip:'Black fights back immediately with Nf6 + d5.' },
+      { name:'Hungarian Defense', moves:'e4 e5 Nf3 Nc6 Bc4 Be7 d4 d6 dxe5 dxe5 Qxd8+ Bxd8 Nxe5 Nxe5 Bxf7+', tip:'Solid but passive: Be7 instead of developing aggressively.' },
+    ]
+  },
+  {
+    eco:'B20', name:'Sicilian Defense', emoji:'♟',
+    desc:'The most popular reply to e4. Fights for center asymmetrically.',
+    ideas:['Counter-attack in center','Create queenside play','Unbalance position'],
+    variations:[
+      { name:'Najdorf',         moves:'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Bg5 e6 f4 Be7 Qf3', tip:'Fischer and Kasparov both loved this. Very sharp and tactical.' },
+      { name:'Dragon',          moves:'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be3 Bg7 f3 O-O Qd2 Nc6', tip:'Black fianchettoes the bishop — leads to razor-sharp attacks.' },
+      { name:'Scheveningen',    moves:'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 e6 Be2 Be7 O-O O-O f4 a6', tip:'Flexible pawn structure, Black waits for White to overextend.' },
+      { name:'Alapin (c3)',     moves:'e4 c5 c3 d5 exd5 Qxd5 d4 Nc6 Nf3 Bg4 Be2 cxd4 cxd4 e6 Nc3', tip:'White avoids theory with c3, aiming for a solid d4 center.' },
+    ]
+  },
+  {
+    eco:'C00', name:'French Defense', emoji:'🛡',
+    desc:'Black prepares d5 with e6. Solid but slightly cramped.',
+    ideas:['Challenge e4 with d5','Counterplay on queenside','Target e4 pawn'],
+    variations:[
+      { name:'Advance Variation', moves:'e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Qb6 Be2 cxd4 cxd4 Nge7 Nc3 Nf5', tip:'White pushes e5 immediately, gaining space. Black counterattacks with c5.' },
+      { name:'Classical',         moves:'e4 e6 d4 d5 Nc3 Nf6 Bg5 Be7 e5 Nfd7 Bxe7 Qxe7 f4 O-O Nf3 c5', tip:'The main line — complex strategic battle.' },
+      { name:'Tarrasch',          moves:'e4 e6 d4 d5 Nd2 Nf6 e5 Nfd7 Bd3 c5 c3 Nc6 Ne2 cxd4 cxd4 f6', tip:'Nd2 instead of Nc3 — avoids the pin and keeps options open.' },
+      { name:'Exchange Variation', moves:'e4 e6 d4 d5 exd5 exd5 Nf3 Bd6 Bd3 Ne7 O-O O-O Re1 Bg4 h3', tip:'White exchanges pawns for an open position. Symmetrical structure.' },
+    ]
+  },
+  {
+    eco:'D06', name:"Queen's Gambit", emoji:'♛',
+    desc:"White offers a pawn on c4 to gain central control.",
+    ideas:['Gain central control','Develop queenside pieces','Minority attack'],
+    variations:[
+      { name:'QGD Classical',   moves:'d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 h6 Bh4 b6 cxd5 Nxd5', tip:'Black declines the gambit with e6 — solid and classical.' },
+      { name:'QGA',             moves:'d4 d5 c4 dxc4 e3 Nf6 Bxc4 e6 Nf3 c5 O-O a6 Qe2 cxd4 Rd1', tip:'Black accepts the pawn but White quickly regains it.' },
+      { name:'Slav Defense',    moves:'d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5 e3 e6 Bxc4 Bb4 O-O O-O', tip:'c6 supports d5 without locking in the c8-bishop.' },
+      { name:'Cambridge Springs', moves:'d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 e3 c6 Nf3 Qa5 cxd5 Nxd5 Qd2', tip:'Black uses Qa5 to pin and attack c3 knight.' },
+    ]
+  },
+  {
+    eco:'E60', name:"King's Indian Defense", emoji:'⚔',
+    desc:"Black lets White build a big center, then counterattacks fiercely.",
+    ideas:['Allow White center','Counter with e5/c5','Create kingside attack'],
+    variations:[
+      { name:'Classical',       moves:'d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O Nc6 d5 Ne7 Ne1', tip:'The main line. Black plays ...e5 to fight for the center.' },
+      { name:'Sämisch',         moves:'d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 f3 O-O Be3 e5 d5 Nh5 Qd2 f5 O-O-O', tip:'White plays f3 for a big center and queenside castles for attack.' },
+      { name:'Four Pawns Attack', moves:'d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 f4 O-O Nf3 c5 d5 e6 Be2 exd5 cxd5', tip:'White builds a massive pawn center — very aggressive.' },
+      { name:'Averbakh',        moves:'d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Be2 O-O Bg5 h6 Be3 c5 d5 e6 Nf3', tip:'White places bishops actively — prevents ...e5 immediately.' },
+    ]
+  },
+  {
+    eco:'D00', name:'London System', emoji:'🔒',
+    desc:"Solid setup for White requiring little memorization.",
+    ideas:['Solid pyramid structure','Develop Bf4 before c3','Avoid weaknesses'],
+    variations:[
+      { name:'Main Line',       moves:'d4 d5 Bf4 Nf6 e3 e6 Nf3 Bd6 Bg3 O-O Nbd2 c5 c3 Nc6 Bd3 Qe7', tip:'The classic London — solid and hard to crack.' },
+      { name:'London vs KID',   moves:'d4 Nf6 Nf3 g6 Bf4 Bg7 e3 O-O Be2 d6 O-O Nbd7 h3 e5 Bh2 Re8', tip:'London against fianchetto setups — White stays solid.' },
+      { name:'Barry Attack',    moves:'d4 Nf6 Nf3 g6 Nc3 d5 Bf4 Bg7 e3 O-O Be2 c6 Ne5 Nbd7 h4 Nxe5', tip:'Aggressive London with Nc3 and h4 — targets kingside.' },
+    ]
+  },
+  {
+    eco:'C30', name:"King's Gambit", emoji:'🗡',
+    desc:"White sacrifices f-pawn for rapid development and attack.",
+    ideas:['Rapid development','Control e5','Open f-file for rook'],
+    variations:[
+      { name:'KGA — Modern',    moves:'e4 e5 f4 exf4 Nf3 d5 exd5 Nf6 Bb5+ c6 dxc6 Nxc6 d4 Bd6 Bxc6+', tip:'Accepted: Black takes on f4. White gets rapid development.' },
+      { name:'Falkbeer Counter', moves:'e4 e5 f4 d5 exd5 e4 d3 Nf6 dxe4 Nxe4 Nf3 Bc5 Qe2 Bf2+ Kd1 O-O', tip:'Counter-gambit! Black gives back the pawn for activity.' },
+      { name:'KGD — Classical',  moves:'e4 e5 f4 Bc5 Nf3 d6 c3 Nf6 d4 exd4 cxd4 Bb6 Nc3 O-O Be3 Nc6', tip:'Declined: Black ignores the gambit and develops solidly.' },
+    ]
+  },
+  {
+    eco:'A10', name:'English Opening', emoji:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+    desc:"c4 controls d5 without e4. Very flexible and transposes to many structures.",
+    ideas:['Control d5 from a distance','Flexible pawn structure','Transpose to QGD/KID'],
+    variations:[
+      { name:'Symmetrical',     moves:'c4 c5 Nf3 Nf6 Nc3 Nc6 g3 g6 Bg2 Bg7 O-O O-O d4 cxd4 Nxd4 Nxd4', tip:'Both sides mirror each other — leads to complex strategic play.' },
+      { name:'Reversed Sicilian', moves:'c4 e5 Nc3 Nf6 Nf3 Nc6 g3 d5 cxd5 Nxd5 Bg2 Nb6 O-O Be7 d3 O-O', tip:'White plays the Sicilian with an extra tempo.' },
+      { name:'King\'s English',  moves:'c4 e5 Nc3 Nf6 g3 d5 cxd5 Nxd5 Bg2 Nb6 Nf3 Nc6 O-O Be7 d3 O-O', tip:'Main line — fianchettoed bishop battles the Black center.' },
+    ]
+  },
+  {
+    eco:'C44', name:'Scotch Game', emoji:'🥃',
+    desc:"White opens the center immediately with d4. Energetic play.",
+    ideas:['Open center early','Strong Nd4 knight','Attack with c3 or f4'],
+    variations:[
+      { name:'Classical',       moves:'e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Bc5 Be3 Qf6 c3 Nge7 Bc4 Ne5 Be2 Qg6', tip:'Black develops actively with Bc5, aiming for the e4 pawn.' },
+      { name:'Mieses Variation', moves:'e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nxc6 bxc6 e5 Qe7 Qe2 Nd5 c4 Ba6', tip:'Nxc6 trades the knight — Black gets two bishops.' },
+      { name:'Scotch Gambit',   moves:'e4 e5 Nf3 Nc6 d4 exd4 Bc4 Bc5 Ng5 Nh6 Nxf7 Nxf7 Bxf7+ Kxf7 Qh5+', tip:'Wild gambit — White sacrifices for the f7 attack.' },
+    ]
+  },
 ];
+
 
 // ── MOVE CLASSIFICATION (Lichess/chess.com standard) ──────────────────────
 const MOVE_TAGS = {
@@ -479,41 +571,198 @@ class ChessGame {
     document.getElementById('openingsModal').classList.remove('hidden');
   }
 
-  _renderOpeningDetail(o) {
+  _renderOpeningDetail(opening) {
     const detail = document.getElementById('openingDetail');
-    const board  = this._renderMiniBoardFromMoves(o.moves);
     detail.innerHTML = `
-      <div class="opening-d-name">${o.emoji} ${o.name}</div>
-      <div class="opening-d-eco">ECO: ${o.eco}</div>
-      <div class="opening-moves-str">${o.moves}</div>
-      ${board}
-      <div class="opening-desc">${o.desc}</div>
+      <div class="opening-d-name">${opening.emoji} ${opening.name} <span class="opening-d-eco">${opening.eco}</span></div>
+      <div class="opening-desc">${opening.desc}</div>
       <div class="opening-section-title">Key Ideas</div>
-      <ul class="opening-ideas">${o.ideas.map(i=>`<li>${i}</li>`).join('')}</ul>
-      <div class="opening-section-title">Common Responses</div>
-      <ul class="opening-ideas">${o.counters.map(c=>`<li>${c}</li>`).join('')}</ul>
-    `;
+      <ul class="opening-ideas">${opening.ideas.map(i=>`<li>${i}</li>`).join('')}</ul>
+      <div class="opening-section-title">Variations — click to practice</div>
+      <div class="opening-var-list" id="openingVarList"></div>
+      <div class="opening-practice-wrap" id="openingPracticeWrap" style="display:none">
+        <div class="opening-practice-header">
+          <span id="openingPracticeName" class="opening-practice-name"></span>
+          <span id="openingPracticeTip" class="opening-practice-tip"></span>
+        </div>
+        <div class="opening-practice-boards">
+          <div id="openingBoard" class="opening-practice-board"></div>
+          <div class="opening-practice-side">
+            <div class="opening-move-list" id="openingMoveList"></div>
+            <div class="opening-practice-controls">
+              <button class="btn" id="opRestart" style="font-size:.78rem;padding:4px 10px">↺ Restart</button>
+              <button class="btn" id="opBack"    style="font-size:.78rem;padding:4px 10px">‹ Back</button>
+              <span id="opStatus" class="op-status"></span>
+            </div>
+            <div id="opNextMoves" class="op-next-moves"></div>
+          </div>
+        </div>
+      </div>`;
+
+    // Render variation buttons
+    const varList = detail.querySelector('#openingVarList');
+    opening.variations.forEach((v,i)=>{
+      const btn = document.createElement('button');
+      btn.className = 'opening-var-btn';
+      btn.innerHTML = `<span class="var-num">${i+1}</span> ${v.name}`;
+      btn.addEventListener('click',()=>{
+        detail.querySelectorAll('.opening-var-btn').forEach(x=>x.classList.remove('active'));
+        btn.classList.add('active');
+        this._startOpeningPractice(v, detail);
+      });
+      varList.appendChild(btn);
+    });
   }
 
-  _renderMiniBoardFromMoves(movesStr) {
-    try {
-      const c = new Chess();
-      movesStr.split(' ').forEach(m => { try { c.move(m); } catch {} });
-      const files = 'abcdefgh';
-      let html = '<div class="opening-mini-board">';
-      for (let ri=0; ri<8; ri++) {
-        for (let fi=0; fi<8; fi++) {
-          const rank=8-ri, file=fi;
-          const sq=files[file]+rank;
-          const isLight=(file+rank)%2===0;
-          const piece=c.get(sq);
-          const pieceHtml = piece ? `<span class="${piece.color==='w'?'wp':'bp'}">${UNI[piece.color+piece.type.toUpperCase()]}</span>` : '';
-          html += `<div class="opening-sq ${isLight?'light':'dark'}">${pieceHtml}</div>`;
-        }
+  _startOpeningPractice(variation, detail) {
+    const wrap = detail.querySelector('#openingPracticeWrap');
+    wrap.style.display = 'block';
+    detail.querySelector('#openingPracticeName').textContent = variation.name;
+    detail.querySelector('#openingPracticeTip').textContent  = variation.tip || '';
+
+    // Parse the move sequence
+    const c = new Chess();
+    const moveSans = variation.moves.trim().split(/\s+/);
+    const moveSeq = [];
+    for (const san of moveSans) {
+      const m = c.move(san);
+      if (m) moveSeq.push(m.san);
+    }
+
+    // State
+    let opChess = new Chess();
+    let opIdx   = 0;   // how many moves have been played in the practice
+    let opDone  = false;
+
+    const render = () => {
+      this._renderOpeningBoard(detail.querySelector('#openingBoard'), opChess);
+      // Move list
+      const ml = detail.querySelector('#openingMoveList');
+      const hist = opChess.history();
+      let mhtml = '';
+      for (let i=0; i<hist.length; i+=2) {
+        const wm = hist[i], bm = hist[i+1]||'';
+        const wi = i===hist.length-1&&hist.length%2===1;  // last white move
+        const bi = i+1===hist.length-1&&hist.length%2===0;
+        mhtml += `<span class="op-move-num">${i/2+1}.</span>
+          <span class="op-move${wi?' op-last':''}">${wm}</span>
+          ${bm?`<span class="op-move${bi?' op-last':''}">${bm}</span>`:''}`;
       }
-      html += '</div>';
-      return html;
-    } catch { return ''; }
+      ml.innerHTML = mhtml;
+      ml.scrollTop = ml.scrollHeight;
+
+      // Status
+      const statusEl = detail.querySelector('#opStatus');
+      const nextEl   = detail.querySelector('#opNextMoves');
+      if (opDone) {
+        statusEl.textContent = '✓ Variation complete!';
+        statusEl.style.color = '#66bb6a';
+        nextEl.innerHTML = '<div style="color:#7d7d7d;font-size:.8rem">Variation finished. Click Restart or choose another variation.</div>';
+      } else {
+        const nextMove = moveSeq[opIdx];
+        const whose = opChess.turn()==='w'?'White':'Black';
+        statusEl.textContent = `${whose} to move`;
+        statusEl.style.color = '';
+        nextEl.innerHTML = `<div class="op-hint-label">Book move: <span class="op-hint-move">${nextMove}</span></div>`;
+      }
+    };
+
+    const tryMove = (san) => {
+      if (opDone) return;
+      const expected = moveSeq[opIdx];
+      // Accept if it matches the book move
+      if (san === expected) {
+        opChess.move(san);
+        opIdx++;
+        if (opIdx >= moveSeq.length) { opDone = true; render(); return; }
+        // Auto-play opponent's response after short delay
+        setTimeout(()=>{
+          const resp = moveSeq[opIdx];
+          if (resp && opChess.turn() !== (opChess.turn())) return; // safety
+          if (resp) {
+            const m = opChess.move(resp);
+            if (m) { opIdx++; if(opIdx>=moveSeq.length) opDone=true; }
+          }
+          render();
+        }, 350);
+        render();
+      } else {
+        // Wrong move — flash error
+        const statusEl = detail.querySelector('#opStatus');
+        statusEl.textContent = `✗ Try ${expected}`;
+        statusEl.style.color = '#ef5350';
+        setTimeout(()=>render(), 1200);
+      }
+    };
+
+    // Make the practice board clickable
+    this._opSelected = null;
+    this._opTryMove  = tryMove;
+    this._opChessGetter = () => opChess;
+
+    // Restart / back buttons
+    detail.querySelector('#opRestart').onclick = () => {
+      opChess = new Chess(); opIdx = 0; opDone = false;
+      this._opSelected = null; render();
+    };
+    detail.querySelector('#opBack').onclick = () => {
+      if (opIdx === 0) return;
+      // Undo 2 moves (opponent + player) or 1 if at start
+      opChess.undo();
+      opIdx--;
+      if (opIdx > 0 && opChess.history().length > 0) {
+        opChess.undo(); opIdx--;
+      }
+      opDone = false; this._opSelected = null; render();
+    };
+
+    render();
+  }
+
+  _renderOpeningBoard(boardEl, chess) {
+    boardEl.innerHTML = '';
+    const files = 'abcdefgh';
+    for (let ri=0; ri<8; ri++) {
+      for (let fi=0; fi<8; fi++) {
+        const rank=8-ri, file=fi;
+        const sq=files[file]+rank;
+        const isLight=(file+rank)%2===0;
+        const piece=chess.get(sq);
+        const div=document.createElement('div');
+        div.className=`opening-sq ${isLight?'light':'dark'}${this._opSelected===sq?' op-selected':''}`;
+        div.dataset.sq=sq;
+
+        if(piece){
+          const img=document.createElement('img');
+          img.className='piece-img'; img.draggable=false;
+          img.src=getPieceUri(piece.color,piece.type);
+          div.appendChild(img);
+        }
+
+        // Highlight last move
+        const hist=chess.history({verbose:true});
+        const last=hist[hist.length-1];
+        if(last&&(sq===last.from||sq===last.to)) div.classList.add('last-move');
+
+        div.addEventListener('click',()=>{
+          if(!this._opTryMove||!this._opChessGetter) return;
+          const opChess=this._opChessGetter();
+          const p=opChess.get(sq);
+          if(!this._opSelected){
+            if(p&&p.color===opChess.turn()){ this._opSelected=sq; this._renderOpeningBoard(boardEl,opChess); }
+            return;
+          }
+          if(sq===this._opSelected){ this._opSelected=null; this._renderOpeningBoard(boardEl,opChess); return; }
+          // Try the move
+          const tmp=new Chess(opChess.fen());
+          const m=tmp.move({from:this._opSelected,to:sq,promotion:'q'});
+          this._opSelected=null;
+          if(m) this._opTryMove(m.san);
+          else   this._renderOpeningBoard(boardEl,opChess);
+        });
+        boardEl.appendChild(div);
+      }
+    }
   }
 
   // ── BIND UI ───────────────────────────────────────────────────────────
@@ -647,10 +896,43 @@ class ChessGame {
       });
     });
 
+    // ── ARROWS: board mousedown + document mouseup ──
+    document.getElementById('board').addEventListener('mousedown', e=>{
+      if(e.button===2){ e.preventDefault(); this.rDragFrom=this._sqFromEvent(e); }
+    });
+    document.getElementById('board').addEventListener('contextmenu', e=>e.preventDefault());
+    document.addEventListener('mouseup', e=>{
+      if(e.button!==2||!this.rDragFrom) return;
+      e.preventDefault();
+      const to=this._sqFromEvent(e);
+      if(to && to!==this.rDragFrom){
+        this._addArrow(this.rDragFrom,to,e);
+      } else {
+        // Same square right-click = clear arrows
+        this.arrows={}; this._renderBoard();
+      }
+      this.rDragFrom=null;
+    });
+
+    // ── ESCAPE: cancel selection / premove ──
+    document.addEventListener('keydown', e=>{
+      if(e.key==='Escape'){
+        if(this.premove){ this.premove=null; this._renderBoard(); }
+        if(this.selected){ this.selected=null; this._renderBoard(); }
+      }
+    });
+
     fetch('/api/eval?fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201&movetime=100')
       .then(r=>r.json())
       .then(()=>{ document.getElementById('engineStatus').textContent='⚙ Engine ready'; })
       .catch(()=>{ document.getElementById('engineStatus').textContent='⚠ Engine offline'; });
+  }
+
+  // Find chess square from a mouse event (hits the square div or its child img)
+  _sqFromEvent(e){
+    let el=document.elementFromPoint(e.clientX,e.clientY);
+    while(el&&!el.dataset?.sq) el=el.parentElement;
+    return el?.dataset?.sq||null;
   }
 
   // ── START MATCH ───────────────────────────────────────────────────────
@@ -850,10 +1132,11 @@ class ChessGame {
 
         const piece=this.chess.get(sq);
         if(piece){
-          const span=document.createElement('span');
-          span.className=`piece ${piece.color==='w'?'white':'black'}`;
-          span.textContent=UNI[piece.color+piece.type.toUpperCase()];
-          div.appendChild(span);
+          const img=document.createElement('img');
+          img.className='piece-img';
+          img.src=getPieceUri(piece.color,piece.type);
+          img.draggable=false;
+          div.appendChild(img);
         }
 
         if(this.lastMove&&(sq===this.lastMove.from||sq===this.lastMove.to)) div.classList.add('last-move');
@@ -877,10 +1160,7 @@ class ChessGame {
           if(sq===this.reviewLastMove.to)   div.classList.add('review-to');
         }
 
-        div.addEventListener('click',     e=>this._handleClick(sq,e));
-        div.addEventListener('mousedown', e=>this._handleMouseDown(sq,e));
-        div.addEventListener('mouseup',   e=>this._handleMouseUp(sq,e));
-        div.addEventListener('contextmenu',e=>e.preventDefault());
+        div.addEventListener('click', e=>this._handleClick(sq,e));
         board.appendChild(div);
       }
     }
@@ -890,12 +1170,6 @@ class ChessGame {
   _findKing(color){ for(const sq of this.chess.board().flat()) if(sq&&sq.type==='k'&&sq.color===color) return sq.square; return null; }
 
   // ── INPUT ─────────────────────────────────────────────────────────────
-  _handleMouseDown(sq,e){ if(e.button===2) this.rDragFrom=sq; }
-  _handleMouseUp(sq,e){
-    if(e.button===2&&this.rDragFrom&&this.rDragFrom!==sq) this._addArrow(this.rDragFrom,sq,e);
-    this.rDragFrom=null;
-  }
-
   _handleClick(sq,e){
     if(e.button===2||this.rDragFrom) return;
     this.arrows={}; this.hintSquares=[];
@@ -905,14 +1179,37 @@ class ChessGame {
 
     if(this.botThinking&&this.settings.premove){
       const piece=this.chess.get(sq);
-      if(!this.premove&&piece&&piece.color===pc){
-        this.premove={from:sq,to:null}; this._renderBoard(); return;
+      if(!this.premove){
+        // No premove yet: click own piece to stage it
+        if(piece&&piece.color===pc){ this.premove={from:sq,to:null}; this._renderBoard(); }
+        return;
       }
-      if(this.premove?.from&&!this.premove.to){
-        if(sq===this.premove.from){ this.premove=null; this._renderBoard(); return; }
-        this.premove={from:this.premove.from,to:sq}; this._renderBoard(); this.sound.premove(); return;
+      if(!this.premove.to){
+        // FROM selected, waiting for destination
+        if(sq===this.premove.from){
+          // Click same piece again = cancel
+          this.premove=null;
+        } else if(piece&&piece.color===pc){
+          // Click another own piece = change source
+          this.premove={from:sq,to:null};
+        } else {
+          // Click any other square = set destination
+          this.premove={from:this.premove.from,to:sq};
+          this.sound.premove();
+        }
+        this._renderBoard(); return;
       }
-      return;
+      // Premove fully set (from+to): allow re-selecting
+      if(piece&&piece.color===pc){
+        this.premove={from:sq,to:null};
+      } else if(sq===this.premove.to){
+        this.premove=null; // Click destination again = cancel
+      } else {
+        // New destination for same piece
+        this.premove={from:this.premove.from,to:sq};
+        this.sound.premove();
+      }
+      this._renderBoard(); return;
     }
 
     if(!this.gameActive) return;
@@ -1317,6 +1614,21 @@ class ChessGame {
     this._renderBoard();
   }
 
+  _reviewHistoricGame(states){
+    this.reviewStates  = states.slice();
+    this.reviewEntries = [];
+    this.reviewMode    = true;
+    this.reviewLastMove= null;
+    this.reviewIdx     = 0;
+    this.gameActive    = false;
+    this.analysisMode  = false;
+    this._stopClock();
+    this._setGameReveal(true);
+    document.getElementById('reviewBar').classList.remove('hidden');
+    document.getElementById('statusText').textContent='Historic game review';
+    this._gotoReview(this.reviewStates.length-1);
+  }
+
   // ── HINT ─────────────────────────────────────────────────────────────
   _showHint(){
     if(!this.bestMoveUci) return;
@@ -1404,8 +1716,10 @@ class ChessGame {
       elo:cfg?.elo||0, diff:['Easy','Normal','Hard'][cfg?.diff??1],
       tc:cfg?.tc?.label||'—', stake:cfg?.stake||0,
       winner, net, reason, moves:this.chess.history().length,
+      states: this.liveStates.slice(),   // save all FENs for free review
+      pgn: this.chess.pgn(),
     });
-    localStorage.setItem(HISTORY_KEY,JSON.stringify(h.slice(0,100)));
+    localStorage.setItem(HISTORY_KEY,JSON.stringify(h.slice(0,50)));
   }
   _loadHistory(){ try{ return JSON.parse(localStorage.getItem(HISTORY_KEY))||[]; } catch{ return[]; } }
 
@@ -1414,20 +1728,30 @@ class ChessGame {
     const list=document.getElementById('historyList');
     if(!h.length){ list.innerHTML='<div class="history-empty">No games played yet</div>'; }
     else {
-      list.innerHTML=h.map(g=>{
+      list.innerHTML='';
+      h.forEach((g,idx)=>{
         const d=new Date(g.date);
         const ds=d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
         const rc=g.winner==='player'?'win':g.winner==='bot'?'loss':'draw';
         const rl=g.winner==='player'?'Win':g.winner==='bot'?'Loss':'Draw';
         const ns=(g.net>=0?'+':'')+'$'+(g.net||0).toLocaleString();
-        return`<div class="history-row ${rc}">
+        const row=document.createElement('div');
+        row.className=`history-row ${rc}`;
+        row.innerHTML=`
           <div><div class="hist-bot">${g.botEmoji} ${g.bot}</div><div class="hist-date">${ds}</div></div>
           <div class="hist-tc">${g.tc}</div>
-          <div style="font-size:.72rem;color:#7d7d7d">ELO ${g.elo} · ${g.diff}</div>
+          <div style="font-size:.72rem;color:#7d7d7d">ELO ${g.elo} · ${g.diff} · ${g.moves||0} moves</div>
           <div class="hist-result ${rc}">${rl}</div>
           <div class="hist-net" style="color:${g.net>=0?'#66bb6a':'#ef5350'}">${ns}</div>
-        </div>`;
-      }).join('');
+          ${g.states?.length>1?`<button class="btn hist-review-btn" data-idx="${idx}">▶ Review</button>`:''}`;
+        if(g.states?.length>1){
+          row.querySelector('.hist-review-btn').addEventListener('click',()=>{
+            document.getElementById('historyModal').classList.add('hidden');
+            this._reviewHistoricGame(g.states);
+          });
+        }
+        list.appendChild(row);
+      });
     }
     document.getElementById('historyModal').classList.remove('hidden');
   }

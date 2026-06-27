@@ -132,20 +132,20 @@ input::placeholder { color:var(--text-dim); }
 .sq-label-file { position:absolute; top:2px; right:3px; font-size:.57rem; font-weight:700; pointer-events:none; color:var(--dark-sq); }
 .square.dark .sq-label-file { color:var(--light-sq); }
 
-/* ── PIECES ── */
+/* ── PIECES (SVG img) ── */
+.piece-img {
+  width: 84%; height: 84%;
+  pointer-events: none; display: block; margin: auto;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,.55));
+}
+/* Legacy unicode (captured display etc) */
 .piece {
-  font-size: clamp(24px, 5.5vw, 48px);
+  font-size: clamp(22px, 5vw, 44px);
   line-height: 1; pointer-events: none; display: block; text-align: center;
   font-family: 'Segoe UI Symbol','Apple Symbols','Noto Chess',system-ui;
 }
-.piece.white {
-  color: #ffffff;
-  text-shadow: 0 0 2px #000, 0 0 4px #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
-}
-.piece.black {
-  color: #000000;
-  text-shadow: 0 0 2px rgba(255,255,255,.5), 0 0 5px rgba(255,255,255,.3);
-}
+.piece.white { color:#fff; text-shadow: 0 0 2px #000, 1px 1px 0 #000, -1px -1px 0 #000; }
+.piece.black { color:#000; text-shadow: 0 0 2px rgba(255,255,255,.5); }
 
 /* ── GAME CONTROLS ── */
 .game-controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:3px 0; }
@@ -377,12 +377,46 @@ input::placeholder { color:var(--text-dim); }
 .opening-ideas   { list-style:none; display:flex; flex-direction:column; gap:3px; margin-bottom:10px; }
 .opening-ideas li{ font-size:.82rem; padding-left:12px; position:relative; }
 .opening-ideas li::before { content:'▸'; position:absolute; left:0; color:var(--accent); }
+/* ── OPENING VARIATIONS ── */
+.opening-var-list  { display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
+.opening-var-btn   { background:var(--surface2); border:1px solid #ffffff14; color:var(--text); padding:7px 12px; border-radius:6px; cursor:pointer; text-align:left; font-size:.84rem; transition:border-color .15s,background .15s; }
+.opening-var-btn:hover  { border-color:var(--accent); background:var(--surface3); }
+.opening-var-btn.active { border-color:var(--accent); background:#81b64c22; }
+.var-num { display:inline-block; width:18px; height:18px; background:var(--accent); color:#fff; border-radius:50%; text-align:center; font-size:.7rem; line-height:18px; margin-right:6px; flex-shrink:0; }
+
+/* ── OPENING PRACTICE AREA ── */
+.opening-practice-wrap  { border-top:1px solid #ffffff10; padding-top:12px; margin-top:4px; }
+.opening-practice-header{ margin-bottom:8px; }
+.opening-practice-name  { font-weight:700; font-size:.95rem; display:block; }
+.opening-practice-tip   { font-size:.78rem; color:var(--text-dim); display:block; margin-top:2px; }
+.opening-practice-boards{ display:flex; gap:12px; align-items:flex-start; }
+.opening-practice-board { width:200px; min-width:200px; aspect-ratio:1; display:grid; grid-template-columns:repeat(8,1fr); border:1px solid #ffffff22; border-radius:4px; overflow:hidden; flex-shrink:0; cursor:pointer; }
+.opening-practice-side  { flex:1; display:flex; flex-direction:column; gap:8px; }
+.opening-move-list      { background:var(--surface2); border-radius:5px; padding:6px 8px; font-size:.8rem; min-height:50px; max-height:120px; overflow-y:auto; line-height:1.9; word-break:break-word; }
+.op-move-num  { color:var(--text-dim); font-size:.74rem; margin-right:2px; }
+.op-move      { background:var(--surface3); border-radius:3px; padding:1px 4px; margin-right:4px; cursor:default; font-size:.82rem; }
+.op-move.op-last { background:var(--accent); color:#fff; }
+.opening-practice-controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.op-status    { font-size:.78rem; color:var(--text-dim); }
+.op-next-moves{ background:var(--surface2); border-radius:5px; padding:6px 9px; }
+.op-hint-label{ font-size:.8rem; color:var(--text-dim); }
+.op-hint-move { font-weight:700; color:var(--accent); font-size:.88rem; }
+
+/* ── OPENING SQ (practice + mini) ── */
 .opening-mini-board { width:180px; aspect-ratio:1; display:grid; grid-template-columns:repeat(8,1fr); border:1px solid #ffffff18; border-radius:4px; overflow:hidden; margin-bottom:10px; }
-.opening-sq { display:flex; align-items:center; justify-content:center; font-size:clamp(10px,1.5vw,18px); font-family:'Segoe UI Symbol','Apple Symbols',system-ui; }
+.opening-sq { display:flex; align-items:center; justify-content:center; position:relative; cursor:pointer; }
 .opening-sq.light { background:var(--light-sq); }
 .opening-sq.dark  { background:var(--dark-sq); }
-.opening-sq .wp { color:#ffffff; text-shadow:0 0 2px #000, 1px 1px 0 #000, -1px -1px 0 #000; }
-.opening-sq .bp { color:#000000; text-shadow:0 0 2px rgba(255,255,255,.4); }
+.opening-sq.last-move { outline:2px solid rgba(255,210,50,.6); outline-offset:-2px; }
+.opening-sq.op-selected { outline:3px solid var(--accent); outline-offset:-3px; }
+.opening-sq .piece-img { width:88%; height:88%; }
+/* Legacy unicode in mini boards */
+.opening-sq .wp { color:#ffffff; text-shadow:0 0 2px #000, 1px 1px 0 #000, -1px -1px 0 #000; font-size:clamp(10px,1.5vw,16px); }
+.opening-sq .bp { color:#000000; text-shadow:0 0 2px rgba(255,255,255,.4); font-size:clamp(10px,1.5vw,16px); }
+
+/* ── HISTORY REVIEW BTN ── */
+.hist-review-btn { font-size:.72rem; padding:3px 9px; background:#1a237e; color:#90caf9; border:none; border-radius:4px; cursor:pointer; white-space:nowrap; margin-top:3px; }
+.hist-review-btn:hover { filter:brightness(1.2); }
 
 /* ── SETTINGS MODAL ── */
 .settings-modal { max-width:360px; text-align:left; max-height:90vh; overflow-y:auto; }
