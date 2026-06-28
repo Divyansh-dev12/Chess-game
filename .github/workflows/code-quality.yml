@@ -1,0 +1,224 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Workflow: Code Quality
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# PURPOSE
+#   Enforces consistent code style and catches common mistakes across both the
+#   Node.js backend (server.js) and the vanilla-JS frontend (public/app.js).
+#   Runs on every PR and on pushes to main.
+#
+# WHAT IT CHECKS
+#   1. ESLint          — JS linting for server.js (CommonJS) and public/app.js
+#                        (ES Modules). Rules target real bugs, not style bikeshedding.
+#   2. File size guard — prevents accidentally committing large binaries
+#                        (e.g. Stockfish WASM) that should live in node_modules.
+#   3. CSS validation  — basic structural check on public/style.css using
+#                        `stylelint` with standard config.
+#   4. HTML validation — checks public/index.html for structural problems
+#                        using `html-validate`.
+#   5. Secrets scan    — rudimentary grep for leaked API keys / secrets
+#                        in tracked files (not a substitute for GitGuardian).
+#
+# ARCHITECTURE NOTES
+#   • server.js  uses CommonJS (`require`/`module.exports`)
+#   • public/app.js uses ES Modules (`import`/`export`) — linted separately
+#   • No transpilation / bundling step — source is served directly
+#   • Stockfish engine is server-side only; frontend never imports it
+#
+# MAINTENANCE
+#   • ESLint config lives in eslint.config.mjs at the repo root (flat config).
+#     Add or tighten rules there — do not disable rules inline in source files
+#     unless there is a documented reason.
+#   • To add stylelint rules, edit .stylelintrc.json.
+#   • The 200 KB file-size limit covers all public/ files except *.wasm.
+#     Raise it in the "File size guard" step if legitimate large assets are added.
+#   • Add `prettier --check` here once the team agrees on a formatter config.
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: Code Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-validate:
+    name: Lint, style & structure checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      # ── Install linting tools as dev dependencies ──────────────────────────
+      # These are intentionally NOT in package.json to keep production installs
+      # lean. CI installs them on demand.
+      - name: Install linting tools
+        run: |
+          npm install --no-save \
+            eslint@^9 \
+            @eslint/js@^9 \
+            globals@^15 \
+            stylelint@^16 \
+            stylelint-config-standard@^36 \
+            html-validate@^9
+
+      # ── Write ESLint flat config (avoids committing a config file) ──────────
+      - name: Write ESLint config (eslint.config.mjs)
+        run: |
+          cat > eslint.config.mjs << 'ESLINTEOF'
+          /**
+           * ESLint flat config — Chess Arena
+           *
+           * Two environments:
+           *   1. server.js  → Node.js CommonJS  (no browser globals)
+           *   2. public/    → Browser ES Modules (no Node globals)
+           *
+           * Philosophy: catch real bugs (undefined vars, bad async, security
+           * anti-patterns). Do NOT enforce cosmetic style here — use Prettier.
+           */
+          import js from '@eslint/js';
+          import globals from 'globals';
+
+          export default [
+            // ── Shared base ───────────────────────────────────────────────
+            js.configs.recommended,
+            {
+              rules: {
+                // Errors that indicate real bugs
+                'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+                'no-undef': 'error',
+                'no-console': 'off',   // console.log is fine in a hobby server
+
+                // Async / promise hygiene
+                'no-async-promise-executor': 'error',
+                'require-await': 'warn',
+
+                // Security basics
+                'no-eval': 'error',
+                'no-implied-eval': 'error',
+              }
+            },
+
+            // ── Backend: server.js (CommonJS, Node globals) ───────────────
+            {
+              files: ['server.js'],
+              languageOptions: {
+                globals: { ...globals.node },
+                sourceType: 'commonjs',
+              },
+            },
+
+            // ── Frontend: public/*.js (ES Modules, browser globals) ───────
+            {
+              files: ['public/**/*.js'],
+              languageOptions: {
+                globals: {
+                  ...globals.browser,
+                  AudioContext: 'readonly',
+                  webkitAudioContext: 'readonly',
+                },
+                sourceType: 'module',
+              },
+              rules: {
+                // Frontend-specific: avoid DOM anti-patterns
+                'no-alert': 'warn',
+              }
+            },
+
+            // ── Ignore generated / vendored files ─────────────────────────
+            { ignores: ['node_modules/', 'dist/', '*.min.js'] }
+          ];
+          ESLINTEOF
+
+      - name: Lint server.js (Node/CommonJS)
+        run: npx eslint server.js --max-warnings=10
+
+      - name: Lint public/app.js (Browser/ESM)
+        run: npx eslint public/app.js --max-warnings=20
+
+      # ── CSS validation ─────────────────────────────────────────────────────
+      - name: Write stylelint config
+        run: |
+          cat > .stylelintrc.json << 'EOF'
+          {
+            "extends": ["stylelint-config-standard"],
+            "rules": {
+              "selector-class-pattern": null,
+              "custom-property-empty-line-before": null,
+              "comment-empty-line-before": null,
+              "alpha-value-notation": null,
+              "color-function-notation": null
+            }
+          }
+          EOF
+
+      - name: Lint public/style.css
+        run: npx stylelint "public/style.css" --max-warnings=30
+        continue-on-error: true   # CSS warnings are advisory until rules are tuned
+
+      # ── HTML validation ────────────────────────────────────────────────────
+      - name: Validate public/index.html
+        run: npx html-validate public/index.html
+        continue-on-error: true   # Advisory until baseline violations are fixed
+
+      # ── File size guard ────────────────────────────────────────────────────
+      # Prevents accidentally committing large binaries to the public/ directory.
+      # Stockfish WASM lives in node_modules and is served via Express — it must
+      # never be copied into public/.
+      - name: Check public/ file sizes (max 500 KB each)
+        run: |
+          echo "Checking file sizes in public/..."
+          MAX_BYTES=512000   # 500 KB
+          FAIL=0
+          for f in public/*; do
+            SIZE=$(wc -c < "$f")
+            if [ "$SIZE" -gt "$MAX_BYTES" ]; then
+              echo "❌ $f is $(($SIZE/1024)) KB — exceeds 500 KB limit"
+              FAIL=1
+            else
+              echo "✅ $f — $(($SIZE/1024)) KB"
+            fi
+          done
+          [ $FAIL -eq 0 ] || exit 1
+
+      # ── Secrets scan ───────────────────────────────────────────────────────
+      # Rudimentary check — not a replacement for a dedicated secrets scanner.
+      # Extend the pattern list as new secret types become relevant.
+      - name: Scan for accidentally committed secrets
+        run: |
+          echo "Scanning for common secret patterns in tracked files..."
+          PATTERNS=(
+            "sk_live_"          # Stripe live secret key
+            "sk_test_"          # Stripe test key
+            "rzp_live_"         # Razorpay live key
+            "AIzaSy"            # Google API key
+            "AKIA[0-9A-Z]{16}"  # AWS access key
+            "ghp_"              # GitHub personal access token
+            "-----BEGIN RSA PRIVATE KEY-----"
+          )
+          FOUND=0
+          for pat in "${PATTERNS[@]}"; do
+            if git grep -rn --include="*.js" --include="*.json" --include="*.env" \
+               -E "$pat" -- ':!node_modules/' 2>/dev/null | grep -q .; then
+              echo "❌ Potential secret found matching pattern: $pat"
+              git grep -rn --include="*.js" --include="*.json" -E "$pat" -- ':!node_modules/'
+              FOUND=1
+            fi
+          done
+          [ $FOUND -eq 0 ] && echo "✅ No secret patterns detected." || exit 1

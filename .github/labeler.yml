@@ -1,0 +1,55 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# GitHub Labeler Configuration
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# PURPOSE
+#   Maps changed file paths to PR labels. Used by the `auto-label` job in
+#   pr-standards.yml. Labels make the PR dashboard filterable at a glance.
+#
+# LABEL PREREQUISITE
+#   Each label listed here must exist in the repository before the labeler
+#   can apply it. Create missing labels at:
+#   https://github.com/Divyansh-dev12/Chess-game/labels
+#
+# FORMAT (actions/labeler v5)
+#   label-name:
+#     - changed-files:
+#       - any-glob-to-any-file: 'glob/pattern/**'
+#
+# MAINTENANCE
+#   Add new labels here when new directories or feature areas are introduced.
+#   The `ci` and `dependencies` labels are standard across most repos.
+# ──────────────────────────────────────────────────────────────────────────────
+
+backend:
+  - changed-files:
+    - any-glob-to-any-file: 'server.js'
+    - any-glob-to-any-file: 'package.json'
+    - any-glob-to-any-file: 'package-lock.json'
+
+frontend:
+  - changed-files:
+    - any-glob-to-any-file: 'public/**'
+
+game-logic:
+  - changed-files:
+    - any-glob-to-any-file: 'public/app.js'
+
+ui:
+  - changed-files:
+    - any-glob-to-any-file: 'public/style.css'
+    - any-glob-to-any-file: 'public/index.html'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file: '.github/**'
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file: 'package.json'
+    - any-glob-to-any-file: 'package-lock.json'
+
+documentation:
+  - changed-files:
+    - any-glob-to-any-file: '*.md'
+    - any-glob-to-any-file: '.github/*.md'
