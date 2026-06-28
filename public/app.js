@@ -280,6 +280,8 @@ class ChessGame {
     this._loadSettings();
     this._bindUI();
     this._renderMatchModal();
+    this._initTrainingSection();
+    this._initPuzzles();
     this._updateWalletDisplay();
     this._updateProfileHeader();
   }
@@ -381,8 +383,11 @@ class ChessGame {
   _loadWallet()  { return parseInt(localStorage.getItem(WALLET_KEY))||5000; }
   _saveWallet()  { localStorage.setItem(WALLET_KEY, this.playerWallet); }
   _updateWalletDisplay() {
-    document.getElementById('walletBig').textContent     = '$'+this.playerWallet.toLocaleString();
-    document.getElementById('walletPreview').textContent = '$'+this.playerWallet.toLocaleString();
+    const fmt = '$'+this.playerWallet.toLocaleString();
+    document.getElementById('walletBig').textContent     = fmt;
+    document.getElementById('walletPreview').textContent = fmt;
+    const amt = document.getElementById('walletAmt');
+    if (amt) amt.textContent = fmt;
   }
 
   _openWallet() {
@@ -534,8 +539,14 @@ class ChessGame {
   _refreshMatchPreview() {
     const diff=parseInt(document.querySelector('.diff-btn.active')?.dataset.diff??1);
     const stake=this._getStake();
-    document.getElementById('poolPreview').textContent  ='$'+(stake*2).toLocaleString();
-    document.getElementById('walletPreview').textContent='$'+this.playerWallet.toLocaleString();
+    const pool=stake*2;
+    const rake=Math.floor(pool*0.05);
+    const winAmt=pool-rake;
+    const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+    set('poolPreview',   '$'+pool.toLocaleString());
+    set('winnerPreview', '$'+winAmt.toLocaleString());
+    set('rakePreview',   '$'+rake.toLocaleString());
+    set('walletPreview', '$'+this.playerWallet.toLocaleString());
     document.querySelectorAll('.bot-card').forEach(c=>{
       const b=BOTS.find(x=>x.id===c.dataset.id);
       if(b) c.querySelector('.bot-elo-range').textContent=`ELO ${b.elo[diff]}`;
@@ -551,23 +562,144 @@ class ChessGame {
     else       { el.classList.add('hidden'); }
   }
 
-  // ── OPENINGS LAB ──────────────────────────────────────────────────────
-  _openOpeningsLab() {
-    const list = document.getElementById('openingsList');
+  // ── TRAINING SECTION ──────────────────────────────────────────────────
+  _initTrainingSection() {
+    const list = document.getElementById('trainingOpeningList');
     list.innerHTML = OPENINGS.map((o,i)=>`
-      <div class="opening-item${i===0?' active':''}" data-idx="${i}">
-        <div class="opening-eco">${o.eco} · ${o.emoji}</div>
-        <div class="opening-name">${o.name}</div>
+      <div class="training-opening-item${i===0?' active':''}" data-idx="${i}">
+        <div class="training-opening-eco">${o.eco} · ${o.emoji}</div>
+        <div class="training-opening-name">${o.name}</div>
       </div>`).join('');
-    list.querySelectorAll('.opening-item').forEach(item=>{
+    list.querySelectorAll('.training-opening-item').forEach(item=>{
       item.addEventListener('click',()=>{
-        list.querySelectorAll('.opening-item').forEach(x=>x.classList.remove('active'));
+        list.querySelectorAll('.training-opening-item').forEach(x=>x.classList.remove('active'));
         item.classList.add('active');
-        this._renderOpeningDetail(OPENINGS[parseInt(item.dataset.idx)]);
+        this._loadTrainingOpening(OPENINGS[parseInt(item.dataset.idx)]);
       });
     });
-    this._renderOpeningDetail(OPENINGS[0]);
-    document.getElementById('openingsModal').classList.remove('hidden');
+    this._loadTrainingOpening(OPENINGS[0]);
+
+    document.getElementById('trainingRestart').addEventListener('click',()=>{ if(this._trainingRestart) this._trainingRestart(); });
+    document.getElementById('trainingBack').addEventListener('click',()=>{ if(this._trainingBack) this._trainingBack(); });
+    document.getElementById('trainingHint').addEventListener('click',()=>{ if(this._trainingShowHint) this._trainingShowHint(); });
+  }
+
+  _loadTrainingOpening(opening) {
+    document.getElementById('trainingOpeningTitle').textContent = `${opening.emoji} ${opening.name}`;
+    document.getElementById('trainingVariationTitle').textContent = '';
+    document.getElementById('trainingTip').textContent = opening.desc;
+    document.getElementById('trainingStatus').textContent = '';
+    document.getElementById('trainingBookHint').style.display = 'none';
+    document.getElementById('trainingMoveList').innerHTML = '';
+
+    // Render key ideas
+    const ideas = document.getElementById('trainingIdeas');
+    ideas.innerHTML = opening.ideas.map(i=>`<li>${i}</li>`).join('');
+
+    // Render variations
+    const varList = document.getElementById('trainingVarList');
+    varList.innerHTML = '';
+    opening.variations.forEach((v,i)=>{
+      const btn = document.createElement('button');
+      btn.className = 'training-var-btn';
+      btn.innerHTML = `<span class="var-num">${i+1}</span> ${v.name}`;
+      btn.addEventListener('click',()=>{
+        varList.querySelectorAll('.training-var-btn').forEach(x=>x.classList.remove('active'));
+        btn.classList.add('active');
+        this._startTrainingVariation(v);
+      });
+      varList.appendChild(btn);
+    });
+
+    // Render empty board
+    const boardEl = document.getElementById('trainingBoard');
+    this._renderOpeningBoard(boardEl, new Chess());
+  }
+
+  _startTrainingVariation(variation) {
+    document.getElementById('trainingVariationTitle').textContent = variation.name;
+    document.getElementById('trainingTip').textContent = variation.tip || '';
+
+    const c = new Chess();
+    const moveSans = variation.moves.trim().split(/\s+/);
+    const moveSeq = [];
+    for (const san of moveSans) { const m=c.move(san); if(m) moveSeq.push(m.san); }
+
+    let opChess = new Chess();
+    let opIdx   = 0;
+    let opDone  = false;
+
+    const boardEl = document.getElementById('trainingBoard');
+    const statusEl = document.getElementById('trainingStatus');
+    const hintWrap = document.getElementById('trainingBookHint');
+    const hintMove = document.getElementById('trainingBookMove');
+    const moveListEl = document.getElementById('trainingMoveList');
+
+    const render = () => {
+      this._renderOpeningBoard(boardEl, opChess);
+      const hist = opChess.history();
+      let mhtml = '';
+      for (let i=0; i<hist.length; i+=2) {
+        const wm=hist[i], bm=hist[i+1]||'';
+        const wlast = i===hist.length-1&&hist.length%2===1;
+        const blast = i+1===hist.length-1&&hist.length%2===0;
+        mhtml+=`<span class="op-move-num">${i/2+1}.</span><span class="op-move${wlast?' op-last':''}">${wm}</span>${bm?`<span class="op-move${blast?' op-last':''}">${bm}</span>`:''}`;
+      }
+      moveListEl.innerHTML = mhtml;
+      moveListEl.scrollTop = moveListEl.scrollHeight;
+
+      if(opDone){
+        statusEl.textContent = '✓ Variation complete!';
+        statusEl.className = 'training-status done';
+        hintWrap.style.display = 'none';
+      } else {
+        const whose = opChess.turn()==='w'?'White':'Black';
+        statusEl.textContent = `${whose} to move`;
+        statusEl.className = 'training-status';
+        hintWrap.style.display = 'none';
+      }
+    };
+
+    const tryMove = (san) => {
+      if(opDone) return;
+      const expected = moveSeq[opIdx];
+      if(san === expected){
+        opChess.move(san); opIdx++;
+        if(opIdx>=moveSeq.length){ opDone=true; render(); return; }
+        setTimeout(()=>{
+          const resp=moveSeq[opIdx];
+          if(resp){ const m=opChess.move(resp); if(m){ opIdx++; if(opIdx>=moveSeq.length) opDone=true; } }
+          render();
+        },350);
+        render();
+      } else {
+        statusEl.textContent = `✗ Try: ${expected}`;
+        statusEl.className = 'training-status wrong';
+        setTimeout(()=>render(),1400);
+      }
+    };
+
+    this._opSelected    = null;
+    this._opTryMove     = tryMove;
+    this._opChessGetter = ()=>opChess;
+
+    this._trainingRestart = ()=>{
+      opChess=new Chess(); opIdx=0; opDone=false;
+      this._opSelected=null; render();
+    };
+    this._trainingBack = ()=>{
+      if(opIdx===0) return;
+      opChess.undo(); opIdx--;
+      if(opIdx>0&&opChess.history().length>0){ opChess.undo(); opIdx--; }
+      opDone=false; this._opSelected=null; render();
+    };
+    this._trainingShowHint = ()=>{
+      if(opDone) return;
+      const nxt = moveSeq[opIdx];
+      if(nxt){ hintWrap.style.display='block'; hintMove.textContent=nxt; setTimeout(()=>{ hintWrap.style.display='none'; },3000); }
+    };
+
+    render();
   }
 
   _renderOpeningDetail(opening) {
@@ -767,11 +899,27 @@ class ChessGame {
   // ── BIND UI ───────────────────────────────────────────────────────────
   _bindUI() {
     const $=id=>document.getElementById(id);
-    $('newGameBtn').addEventListener('click',()=>{ $('startMatchModal').classList.remove('hidden'); this._refreshMatchPreview(); this._checkFairMatchWarning(); });
-    $('openingsBtn').addEventListener('click',()=>this._openOpeningsLab());
-    $('flipBoard').addEventListener('click',()=>{ this.flipped=!this.flipped; this._renderBoard(); });
-    $('uploadPgnBtn').addEventListener('click',()=>$('pgnFileInput').click());
-    $('pgnFileInput').addEventListener('change',e=>this._loadPgn(e));
+
+    // Section navigation
+    document.querySelectorAll('.section-tab').forEach(tab=>{
+      tab.addEventListener('click',()=>{
+        document.querySelectorAll('.section-tab').forEach(t=>t.classList.remove('active'));
+        tab.classList.add('active');
+        const sec=tab.dataset.section;
+        document.querySelectorAll('.app-section').forEach(s=>{ s.classList.remove('active'); s.classList.add('hidden'); });
+        const target=document.getElementById('section'+sec.charAt(0).toUpperCase()+sec.slice(1));
+        if(target){ target.classList.remove('hidden'); target.classList.add('active'); }
+      });
+    });
+
+    $('newGameBtn').addEventListener('click',()=>{
+      // switch to sattebaazi first
+      document.querySelectorAll('.section-tab').forEach(t=>t.classList.remove('active'));
+      document.querySelector('[data-section="sattebaazi"]').classList.add('active');
+      document.querySelectorAll('.app-section').forEach(s=>{ s.classList.remove('active'); s.classList.add('hidden'); });
+      $('sectionSattebaazi').classList.remove('hidden'); $('sectionSattebaazi').classList.add('active');
+      $('startMatchModal').classList.remove('hidden'); this._refreshMatchPreview(); this._checkFairMatchWarning();
+    });
     $('historyBtn').addEventListener('click',()=>this._openHistory());
     $('walletBtn').addEventListener('click',()=>this._openWallet());
     $('profileBtn').addEventListener('click',()=>this._openProfile());
@@ -790,6 +938,7 @@ class ChessGame {
 
     $('startMatchBtn').addEventListener('click',()=>this._startMatch());
     $('analysisModeBtn').addEventListener('click',()=>this._startAnalysisMode());
+    $('analysisModeBtn2').addEventListener('click',()=>this._startAnalysisMode());
 
     $('gameOverNewGame').addEventListener('click',()=>{ $('gameOverModal').classList.add('hidden'); $('startMatchModal').classList.remove('hidden'); this._refreshMatchPreview(); });
     $('gameOverRematch').addEventListener('click',()=>{ $('gameOverModal').classList.add('hidden'); this._rematch(); });
@@ -800,7 +949,6 @@ class ChessGame {
     $('drawCancel').addEventListener('click',   ()=>$('drawModal').classList.add('hidden'));
     $('walletClose').addEventListener('click',  ()=>$('walletModal').classList.add('hidden'));
     $('historyClose').addEventListener('click', ()=>$('historyModal').classList.add('hidden'));
-    $('openingsClose').addEventListener('click',()=>$('openingsModal').classList.add('hidden'));
     $('profileClose').addEventListener('click', ()=>$('profileModal').classList.add('hidden'));
     $('settingsClose').addEventListener('click',()=>$('settingsModal').classList.add('hidden'));
 
@@ -949,7 +1097,8 @@ class ChessGame {
     const tc = { seconds:parseInt(tcBtn.dataset.seconds), increment:parseInt(tcBtn.dataset.increment||0), label:tcBtn.textContent };
     const playerColor = colorCode==='r'?(Math.random()<.5?'w':'b'):colorCode;
 
-    this.matchConfig = { bot, diff, tc, stake, playerColor, elo:bot.elo[diff], blunderChance:bot.blunder[diff] };
+    const rake = Math.floor(stake * 2 * 0.05);
+    this.matchConfig = { bot, diff, tc, stake, rake, playerColor, elo:bot.elo[diff], blunderChance:bot.blunder[diff] };
     this.flipped     = playerColor==='b';
     this.analysisMode = false;
 
@@ -1534,9 +1683,11 @@ class ChessGame {
 
     const stake=this.matchConfig?.stake||0;
     const pool=stake*2;
+    const rake=this.matchConfig?.rake||Math.floor(pool*0.05);
+    const winAmt=pool-rake;
     let netChange=0,title='',sub='';
     if(winner==='player'){
-      netChange=pool; title='🏆 You Win!'; sub=reason==='timeout'?'Bot ran out of time':'Checkmate!';
+      netChange=winAmt; title='🏆 You Win!'; sub=reason==='timeout'?'Bot ran out of time':'Checkmate!';
       this._updateEloAfterGame(1, this.matchConfig?.elo||1200);
     } else if(winner==='bot'){
       netChange=0; title='💀 You Lose'; sub=reason==='timeout'?'Out of time':reason==='resign'?'Resigned':'Checkmate';
@@ -1549,7 +1700,7 @@ class ChessGame {
     this.playerWallet+=netChange; this._saveWallet(); this._updateWalletDisplay();
     const net=netChange-stake;
     document.getElementById('gameOverTitle').textContent=title;
-    document.getElementById('gameOverSub').textContent=sub+` · Pool: $${pool.toLocaleString()}`;
+    document.getElementById('gameOverSub').textContent=sub+` · Pool: $${pool.toLocaleString()} · Rake: $${rake.toLocaleString()}`;
     document.getElementById('gameOverEarnings').innerHTML=
       `Move bonuses: <strong style="color:${this.playerPool>=stake?'#66bb6a':'#ef5350'}">${this.playerPool>=stake?'+':''}$${(this.playerPool-stake).toLocaleString()}</strong>
        &nbsp;·&nbsp; Net: <strong style="color:${net>=0?'#66bb6a':'#ef5350'}">${net>=0?'+':''}$${net.toLocaleString()}</strong>`;
@@ -1771,6 +1922,186 @@ class ChessGame {
       this._gotoReview(this.reviewIdx);
     };
     reader.readAsText(file); e.target.value='';
+  }
+
+  // ── PUZZLE ENGINE ─────────────────────────────────────────────────────
+  _initPuzzles() {
+    this._puzzleIdx   = 0;
+    this._puzzleStreak= 0;
+    this._puzzleSolved= 0;
+    this._puzzleAttempted = 0;
+    this._puzzleFlipped   = false;
+    this._puzzleSelected  = null;
+    this._puzzleSolvedThis = false;
+
+    const PUZZLES = [
+      { id:1,  label:'Mate in 1', theme:'Checkmate',    diff:'★☆☆', turn:'w',
+        fen:'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4',
+        moves:['h5f7'], solution:'Qxf7#' },
+      { id:2,  label:'Fork!',     theme:'Knight Fork',  diff:'★☆☆', turn:'w',
+        fen:'r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R w KQkq - 2 4',
+        moves:['f3e5'], solution:'Nxe5 forks the knight on c6 and threatens the queen' },
+      { id:3,  label:'Pin it',    theme:'Absolute Pin', diff:'★★☆', turn:'w',
+        fen:'rnb1kbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 3',
+        moves:['f1b5'], solution:'Bb5 — pins the Nc6 to the king (absolute pin)' },
+      { id:4,  label:'Skewer',    theme:'Skewer',       diff:'★★☆', turn:'w',
+        fen:'6k1/8/8/8/8/8/8/R5K1 w - - 0 1',
+        moves:['a1a8'], solution:'Ra8+ — the king must move, rook takes whatever is behind' },
+      { id:5,  label:'Back rank', theme:'Back Rank Mate',diff:'★★☆', turn:'w',
+        fen:'6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1',
+        moves:['a1a8'], solution:'Ra8# — back-rank checkmate, no escape squares' },
+      { id:6,  label:'Deflection',theme:'Deflection',   diff:'★★★', turn:'w',
+        fen:'r4rk1/pp3ppp/2p5/8/2B5/1Q6/PPP2PPP/R3K2R w KQ - 0 1',
+        moves:['b3f7'], solution:'Qxf7+! — deflects the rook on f8 from protecting the back rank' },
+      { id:7,  label:'Discovered',theme:'Discovery',    diff:'★★★', turn:'w',
+        fen:'r1bqk2r/ppp2ppp/2np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQK2R w KQkq - 0 1',
+        moves:['c3d5'], solution:'Nd5 — discovered attack: Nc3 moves revealing Bc4 attacks f7' },
+      { id:8,  label:'Zwischenzug',theme:'In-between move',diff:'★★★', turn:'b',
+        fen:'r1bqkb1r/ppp2ppp/2np1n2/4p3/2BPP3/5N2/PPP2PPP/RNBQK2R b KQkq d3 0 5',
+        moves:['f6e4'], solution:'Nxe4! — rather than recapture on d5, Black wins a pawn first' },
+      { id:9,  label:'Decoy',     theme:'Decoy Sacrifice',diff:'★★★', turn:'w',
+        fen:'3r4/pp3pk1/2p3pp/8/3R4/2P2PP1/PP4KP/8 w - - 0 1',
+        moves:['d4d7'], solution:'Rxd7! — lures the rook to d7, then follow-up wins material' },
+      { id:10, label:'Trapped piece',theme:'Trap',      diff:'★★☆', turn:'w',
+        fen:'rnbqkb1r/ppp1pppp/3p4/8/3nP3/2NB1N2/PPP2PPP/R1BQK2R w KQkq - 0 6',
+        moves:['c3d5'], solution:'Nd5! — the Nd4 is trapped, any move loses material' },
+      { id:11, label:'Rook end',  theme:'Rook Ending',  diff:'★★☆', turn:'w',
+        fen:'8/8/8/3k4/8/8/4R3/4K3 w - - 0 1',
+        moves:['e2e5'], solution:'Re5+ — the most efficient way to drive the king to the edge' },
+      { id:12, label:'Pawn break',theme:'Pawn Storm',   diff:'★★★', turn:'w',
+        fen:'r1bqk2r/ppp2ppp/2np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQK2R w KQkq - 0 1',
+        moves:['d3d4'], solution:'d4! — the central pawn break, fighting for the center now' },
+    ];
+
+    this._PUZZLES = PUZZLES;
+
+    const $ = id=>document.getElementById(id);
+    $('puzzleNext').addEventListener('click',    ()=>{ this._puzzleIdx=(this._puzzleIdx+1)%PUZZLES.length; this._loadPuzzle(); });
+    $('puzzlePrev').addEventListener('click',    ()=>{ this._puzzleIdx=(this._puzzleIdx-1+PUZZLES.length)%PUZZLES.length; this._loadPuzzle(); });
+    $('puzzleFlipBtn').addEventListener('click', ()=>{ this._puzzleFlipped=!this._puzzleFlipped; this._renderPuzzleBoard(); });
+    $('puzzleHintBtn').addEventListener('click', ()=>{
+      const pz = PUZZLES[this._puzzleIdx];
+      const from = pz.moves[0].slice(0,2);
+      $('puzzleFeedback').textContent = `💡 Hint: the key piece is on ${from.toUpperCase()}`;
+      $('puzzleFeedback').style.color = '#ffd54f';
+    });
+
+    this._loadPuzzle();
+  }
+
+  _loadPuzzle() {
+    const pz  = this._PUZZLES[this._puzzleIdx];
+    this._puzzleSolvedThis = false;
+    this._puzzleSelected   = null;
+    this._puzzleFlipped = pz.turn === 'b';
+
+    const $ = id=>document.getElementById(id);
+    $('puzzleLabel').textContent   = `Puzzle #${pz.id}`;
+    $('puzzleTheme').textContent   = pz.theme;
+    $('puzzleDiff').textContent    = pz.diff;
+    $('puzzlePrompt').textContent  = (pz.turn==='w'?'White':'Black') + ' to move — find the best move';
+    $('puzzleFeedback').textContent= '';
+    $('puzzleFeedback').style.color= '';
+    $('puzzleSolutionWrap').classList.add('hidden');
+
+    this._puzzleChess = new Chess(pz.fen);
+    this._renderPuzzleBoard();
+    this._renderPuzzleStats();
+  }
+
+  _renderPuzzleBoard() {
+    const boardEl = document.getElementById('puzzleBoard');
+    boardEl.innerHTML = '';
+    const chess = this._puzzleChess;
+    const files = 'abcdefgh';
+    for (let ri=0; ri<8; ri++) {
+      for (let fi=0; fi<8; fi++) {
+        const rank = this._puzzleFlipped ? ri+1 : 8-ri;
+        const file = this._puzzleFlipped ? 7-fi : fi;
+        const sq   = files[file]+rank;
+        const isLight = (file+rank)%2===0;
+        const piece = chess.get(sq);
+        const div = document.createElement('div');
+        div.className = `opening-sq ${isLight?'light':'dark'}`;
+        if (this._puzzleSelected === sq) div.classList.add('op-selected');
+        div.dataset.sq = sq;
+
+        if (piece) {
+          const span = document.createElement('span');
+          span.className = `piece ${piece.color==='w'?'white':'black'}`;
+          span.textContent = UNI[piece.color+piece.type.toUpperCase()];
+          div.appendChild(span);
+        }
+
+        div.addEventListener('click', ()=>this._handlePuzzleClick(sq));
+        boardEl.appendChild(div);
+      }
+    }
+  }
+
+  _handlePuzzleClick(sq) {
+    if (this._puzzleSolvedThis) return;
+    const pz = this._PUZZLES[this._puzzleIdx];
+    const chess = this._puzzleChess;
+    const piece = chess.get(sq);
+    const fb  = document.getElementById('puzzleFeedback');
+
+    if (!this._puzzleSelected) {
+      if (piece && piece.color === pz.turn) {
+        this._puzzleSelected = sq;
+        this._renderPuzzleBoard();
+      }
+      return;
+    }
+
+    if (sq === this._puzzleSelected) {
+      this._puzzleSelected = null;
+      this._renderPuzzleBoard();
+      return;
+    }
+
+    // Try the move
+    const attempt = this._puzzleSelected + sq;
+    const correct = pz.moves[0]; // first (key) move
+
+    if (attempt === correct || attempt === correct.slice(0,4)) {
+      // Correct!
+      chess.move({from:this._puzzleSelected, to:sq, promotion:'q'});
+      this._puzzleSelected = null;
+      this._puzzleSolvedThis = true;
+      this._puzzleSolved++;
+      this._puzzleAttempted++;
+      if (!this._puzzleWasWrong) this._puzzleStreak++;
+      this._puzzleWasWrong = false;
+      fb.textContent = '✓ Correct! Well done.';
+      fb.style.color = '#66bb6a';
+      document.getElementById('puzzleSolutionWrap').classList.remove('hidden');
+      document.getElementById('puzzleSolution').textContent = pz.solution;
+      this._renderPuzzleBoard();
+      this._renderPuzzleStats();
+    } else {
+      // Wrong
+      this._puzzleWasWrong = true;
+      this._puzzleStreak   = 0;
+      this._puzzleAttempted++;
+      this._puzzleSelected = null;
+      fb.textContent = '✗ Not the best move — try again';
+      fb.style.color = '#ef5350';
+      this._renderPuzzleBoard();
+      this._renderPuzzleStats();
+    }
+  }
+
+  _renderPuzzleStats() {
+    document.getElementById('streakCount').textContent = this._puzzleStreak;
+    const acc = this._puzzleAttempted > 0 ? Math.round(this._puzzleSolved/this._puzzleAttempted*100) : 100;
+    document.getElementById('puzzleStats').innerHTML =
+      `<div style="font-size:.78rem;color:var(--text-dim);margin-bottom:4px">SESSION STATS</div>
+       <div style="display:flex;gap:16px">
+         <div><strong style="color:var(--gold)">${this._puzzleSolved}</strong><div style="font-size:.7rem;color:var(--text-dim)">Solved</div></div>
+         <div><strong style="color:#80cbc4">${this._puzzleAttempted}</strong><div style="font-size:.7rem;color:var(--text-dim)">Attempts</div></div>
+         <div><strong style="color:#66bb6a">${acc}%</strong><div style="font-size:.7rem;color:var(--text-dim)">Accuracy</div></div>
+       </div>`;
   }
 }
 

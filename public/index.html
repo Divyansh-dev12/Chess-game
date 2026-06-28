@@ -7,40 +7,144 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="app">
 
-  <header class="header">
-    <div class="logo">♟ Chess Arena</div>
-    <div class="header-controls">
-      <button id="newGameBtn"    class="btn btn-primary">⚔ New Match</button>
-      <button id="openingsBtn"   class="btn btn-openings">📖 Openings</button>
-      <button id="flipBoard"     class="btn">⇅ Flip</button>
-      <button id="uploadPgnBtn"  class="btn btn-upload">⬆ PGN</button>
-      <button id="historyBtn"    class="btn btn-history">📜 History</button>
-      <button id="walletBtn"     class="btn btn-wallet">💰 Wallet</button>
-      <button id="profileBtn"    class="btn btn-profile" id="profileBtn">👤 <span id="profileName">Player</span></button>
-      <button id="settingsBtn"   class="btn btn-settings">⚙</button>
-      <input type="file" id="pgnFileInput" accept=".pgn,.txt" hidden>
-    </div>
-  </header>
+<!-- ── HEADER ──────────────────────────────────────────────────────────────── -->
+<header class="header">
+  <div class="logo">♟ Chess Arena</div>
 
-  <div id="reviewBar" class="review-bar hidden">
-    <span class="review-label">📽 Game Review</span>
-    <div class="review-nav">
-      <button id="reviewFirst" class="nav-btn">⏮</button>
-      <button id="reviewPrev"  class="nav-btn">‹</button>
-      <span   id="reviewCounter" class="review-counter">0 / 0</span>
-      <button id="reviewNext"  class="nav-btn">›</button>
-      <button id="reviewLast"  class="nav-btn">⏭</button>
-    </div>
-    <div id="reviewMoveInfo" class="review-move-info"></div>
-    <button id="exitReviewBtn" class="btn">✕ Exit</button>
+  <nav class="section-nav">
+    <button class="section-tab active" data-section="training">📖 Training</button>
+    <button class="section-tab"        data-section="puzzles">🧩 Puzzles</button>
+    <button class="section-tab"        data-section="sattebaazi">⚔ Sattebaazi</button>
+  </nav>
+
+  <div class="header-controls">
+    <button id="profileBtn"  class="btn btn-profile">👤 <span id="profileName">Player</span></button>
+    <button id="walletBtn"   class="btn btn-wallet">💰 <span id="walletAmt">$5,000</span></button>
+    <button id="historyBtn"  class="btn btn-history">📋 History</button>
+    <button id="settingsBtn" class="btn btn-settings">⚙</button>
   </div>
+</header>
 
-  <main class="main">
-    <section class="board-section">
+<!-- Review bar (shown during game review) -->
+<div id="reviewBar" class="review-bar hidden">
+  <span class="review-label">📽 Game Review</span>
+  <div class="review-nav">
+    <button id="reviewFirst" class="nav-btn">⏮</button>
+    <button id="reviewPrev"  class="nav-btn">‹</button>
+    <span   id="reviewCounter" class="review-counter">0 / 0</span>
+    <button id="reviewNext"  class="nav-btn">›</button>
+    <button id="reviewLast"  class="nav-btn">⏭</button>
+  </div>
+  <div id="reviewMoveInfo" class="review-move-info"></div>
+  <button id="exitReviewBtn" class="btn">✕ Exit</button>
+</div>
 
-      <div class="player-card" id="playerCardTop">
+<!-- ══════════════════════════════════════════════════════════════════════
+     SECTION 1 — TRAINING
+     ══════════════════════════════════════════════════════════════════ -->
+<section id="sectionTraining" class="app-section active">
+  <div class="training-layout">
+
+    <!-- Left sidebar: opening list -->
+    <aside class="training-sidebar">
+      <div class="sidebar-title">Book Openings</div>
+      <div id="trainingOpeningList" class="training-opening-list"></div>
+    </aside>
+
+    <!-- Center: interactive board -->
+    <div class="training-center">
+      <div class="training-header">
+        <div class="training-opening-title" id="trainingOpeningTitle">← Select an opening</div>
+        <div class="training-variation-title" id="trainingVariationTitle"></div>
+        <div class="training-tip" id="trainingTip"></div>
+      </div>
+
+      <div class="training-board-wrap">
+        <div id="trainingBoard" class="training-board"></div>
+      </div>
+
+      <div class="training-controls">
+        <button class="btn" id="trainingRestart">↺ Restart</button>
+        <button class="btn" id="trainingBack">‹ Back</button>
+        <button class="btn btn-hint" id="trainingHint">💡 Show Move</button>
+        <span id="trainingStatus" class="training-status"></span>
+      </div>
+
+      <div class="training-book-hint" id="trainingBookHint" style="display:none">
+        Book move: <strong id="trainingBookMove"></strong>
+      </div>
+
+      <div class="training-move-list" id="trainingMoveList"></div>
+    </div>
+
+    <!-- Right sidebar: variations + key ideas -->
+    <aside class="training-info">
+      <div class="sidebar-title">Variations</div>
+      <div id="trainingVarList" class="training-var-list"></div>
+      <div class="sidebar-title" style="margin-top:16px">Key Ideas</div>
+      <ul id="trainingIdeas" class="training-ideas"></ul>
+    </aside>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     SECTION 2 — PUZZLES
+     ══════════════════════════════════════════════════════════════════ -->
+<section id="sectionPuzzles" class="app-section hidden">
+  <div class="puzzles-layout">
+
+    <div class="puzzle-board-col">
+      <div class="puzzle-header">
+        <div class="puzzle-meta">
+          <span class="puzzle-label" id="puzzleLabel">Puzzle #1</span>
+          <span class="puzzle-theme" id="puzzleTheme"></span>
+          <span class="puzzle-diff"  id="puzzleDiff"></span>
+        </div>
+        <div class="puzzle-prompt" id="puzzlePrompt">White to move</div>
+      </div>
+
+      <div class="puzzle-board-wrap">
+        <div id="puzzleBoard" class="puzzle-board"></div>
+      </div>
+
+      <div class="puzzle-controls">
+        <button class="btn" id="puzzlePrev">‹ Prev</button>
+        <button class="btn btn-hint" id="puzzleHintBtn">💡 Hint</button>
+        <button class="btn btn-primary" id="puzzleNext">Next ›</button>
+        <button class="btn btn-neutral" id="puzzleFlipBtn">⇅ Flip</button>
+      </div>
+    </div>
+
+    <div class="puzzle-side">
+      <div class="puzzle-feedback" id="puzzleFeedback"></div>
+
+      <div class="puzzle-streak">
+        <div class="streak-label">🔥 Streak</div>
+        <div class="streak-count" id="streakCount">0</div>
+      </div>
+
+      <div class="puzzle-stats" id="puzzleStats"></div>
+
+      <div class="puzzle-solution-wrap hidden" id="puzzleSolutionWrap">
+        <div class="sidebar-title">Solution</div>
+        <div class="puzzle-solution" id="puzzleSolution"></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     SECTION 3 — SATTEBAAZI
+     ══════════════════════════════════════════════════════════════════ -->
+<section id="sectionSattebaazi" class="app-section hidden">
+  <div class="main">
+
+    <div class="board-section">
+
+      <div class="player-card">
         <div class="player-avatar" id="topAvatar">🤖</div>
         <div class="player-meta">
           <div class="player-name" id="topPlayerName">Bot</div>
@@ -48,24 +152,22 @@
         </div>
         <div class="player-captured" id="topCaptured"></div>
         <div class="material-adv"    id="topMaterial"></div>
-        <div class="thinking-dots hidden" id="botThinkingDots"><span></span><span></span><span></span></div>
         <div class="player-clock" id="topClock">—</div>
       </div>
 
-      <div class="board-area">
+      <div class="board-wrap">
         <div class="eval-bar-wrap" id="evalBarWrap">
-          <div class="eval-bar" id="evalBar">
+          <div class="eval-bar">
             <div class="eval-black" id="evalBlack" style="flex:1"></div>
             <div class="eval-white" id="evalWhite" style="flex:1"></div>
           </div>
           <div class="eval-score" id="evalScore">0.0</div>
         </div>
-        <div class="board-wrap">
-          <div id="board" class="board"></div>
-        </div>
+        <div id="board" class="board"></div>
+        <span class="thinking-dots hidden" id="botThinkingDots"><span></span><span></span><span></span></span>
       </div>
 
-      <div class="player-card" id="playerCardBottom">
+      <div class="player-card">
         <div class="player-avatar" id="bottomAvatar">👤</div>
         <div class="player-meta">
           <div class="player-name" id="bottomPlayerName">You</div>
@@ -79,185 +181,187 @@
       <div class="game-controls">
         <button id="resignBtn" class="btn btn-danger">⚑ Resign</button>
         <button id="drawBtn"   class="btn btn-neutral">½ Draw</button>
-        <button id="hintBtn"   class="btn btn-hint hidden" id="hintBtn">💡 Hint</button>
-        <button id="undoMove"  class="btn">⟵ Undo</button>
-        <span   id="statusText"   class="status-text">—</span>
-        <span   id="engineStatus" class="engine-badge">⚙ Loading…</span>
+        <button id="hintBtn"   class="btn btn-hint hidden">💡 Hint</button>
+        <button id="undoMove"  class="btn">← Undo</button>
+        <span id="statusText"   class="status-text">—</span>
+        <span id="engineStatus" class="engine-badge">⚙ Loading…</span>
       </div>
 
-      <div class="arrow-legend">
-        Right-click drag: arrows &nbsp;·&nbsp;
-        <span class="leg green">■</span>Default
-        <span class="leg blue">■</span>Shift
-        <span class="leg red">■</span>Ctrl
-        <span class="leg orange">■</span>Alt
+      <div class="board-help">Right-click drag: arrows &nbsp;·&nbsp;
+        <span class="arrow-key green">■</span> Default
+        <span class="arrow-key blue">■</span> Shift
+        <span class="arrow-key red">■</span> Ctrl
+        <span class="arrow-key orange">■</span> Alt
       </div>
-    </section>
+    </div>
 
-    <aside class="sidebar">
-      <div class="pool-panel">
-        <div class="panel-header">
-          🏆 Match Pool
+    <div class="right-panel">
+
+      <div class="panel pool-panel">
+        <div class="pool-header">
+          🏆 MATCH POOL
           <span class="pool-total-badge" id="poolBadge">$0 pool</span>
         </div>
-        <div class="bankroll-versus">
+        <div class="pool-body">
           <div class="bk-side">
-            <div class="bk-label">You</div>
+            <div class="bk-label">YOU</div>
             <div class="bk-amount" id="playerBalance">$0</div>
             <div class="bk-delta hidden" id="playerDelta"></div>
           </div>
-          <div class="bk-center">
-            <div class="bk-vs">VS</div>
-            <div class="bonus-unlock">
-              <div class="unlock-label">Bonuses</div>
-              <div class="unlock-pips" id="unlockPips">
-                <span class="pip"></span><span class="pip"></span><span class="pip"></span>
-                <span class="pip"></span><span class="pip"></span>
-              </div>
-              <div class="unlock-count" id="unlockCount">5 moves</div>
+          <div class="pool-unlock">
+            <div class="pip-label">Bonuses unlock after</div>
+            <div class="unlock-pips" id="unlockPips">
+              <span class="pip"></span><span class="pip"></span>
+              <span class="pip"></span><span class="pip"></span><span class="pip"></span>
             </div>
+            <div class="unlock-count" id="unlockCount">5 moves</div>
           </div>
           <div class="bk-side">
-            <div class="bk-label">Bot</div>
+            <div class="bk-label">BOT</div>
             <div class="bk-amount" id="botBalance">$0</div>
             <div class="bk-delta hidden" id="botDelta"></div>
           </div>
         </div>
-        <div class="bankroll-rules" id="bonusRules">
-          <span class="rule brilliant">!! Brilliant +$200</span>
-          <span class="rule great">! Great +$100</span>
-          <span class="rule good">• Good +$10</span>
-          <span class="rule inaccuracy">?! Inaccuracy −$30</span>
-          <span class="rule bad">?? Blunder −$80</span>
+        <div class="rake-info" id="rakeInfo" style="display:none">
+          Rake 5%: <strong id="rakeAmt">$0</strong> · Winner gets <strong id="winnerAmt">$0</strong>
+        </div>
+        <div class="new-match-btns">
+          <button id="newGameBtn"      class="btn btn-primary" style="flex:1">⚔ New Match</button>
+          <button id="analysisModeBtn" class="btn btn-neutral" style="flex:1">🔍 Analysis</button>
         </div>
       </div>
 
       <div class="panel best-move-panel" id="bestMovePanel">
-        <div class="panel-header">Best Move</div>
-        <div class="best-move-content">
-          <span class="best-move-badge" id="bestMoveBadge">—</span>
-          <span class="best-move-tip">Revealed after game ends</span>
-        </div>
+        <div class="panel-title">BEST MOVE</div>
+        <span class="best-move-badge" id="bestMoveBadge">—</span>
       </div>
 
       <div class="panel analysis-panel" id="analysisPanel">
-        <div class="panel-header">Last Move</div>
+        <div class="panel-title">LAST MOVE</div>
         <div id="lastMoveAnalysis" class="analysis-content">
-          <div class="analysis-placeholder">Analysis revealed after game</div>
+          <div class="analysis-placeholder">Make a move to see analysis</div>
         </div>
       </div>
 
-      <div class="panel move-history-panel">
-        <div class="panel-header">Moves</div>
+      <div class="panel">
+        <div class="panel-title">MOVES</div>
         <div id="moveHistory" class="move-history"></div>
       </div>
-    </aside>
-  </main>
-</div>
 
-<!-- ════════════ MODALS ════════════ -->
+    </div>
+  </div>
+</section>
 
-<!-- START MATCH -->
-<div id="startMatchModal" class="modal-overlay">
+<!-- ══════════════════════════════════════════════════════════════════════
+     MODALS
+     ══════════════════════════════════════════════════════════════════ -->
+
+<!-- NEW MATCH -->
+<div id="startMatchModal" class="modal-overlay hidden">
   <div class="modal match-modal">
-    <div class="match-modal-title">⚔ New Match</div>
+    <div class="modal-title">⚔ New Sattebaazi Match</div>
+    <div class="rake-banner">🏦 Platform rake: 5% · Winner takes 95% of pool</div>
+
+    <div class="match-cols">
+      <div class="match-col">
+        <div class="match-section-label">CHOOSE OPPONENT</div>
+        <div class="bot-tabs">
+          <button class="bot-tab active" data-tab="casual">Casual Bots</button>
+          <button class="bot-tab"        data-tab="famous">Famous Players</button>
+        </div>
+        <div class="bot-grid" id="botGrid"></div>
+
+        <div class="match-section-label" style="margin-top:12px">DIFFICULTY</div>
+        <div class="diff-btns">
+          <button class="diff-btn" data-diff="0">Easy</button>
+          <button class="diff-btn active" data-diff="1">Normal</button>
+          <button class="diff-btn" data-diff="2">Hard</button>
+        </div>
+      </div>
+
+      <div class="match-col">
+        <div class="match-section-label">TIME CONTROL</div>
+        <div class="time-cats" id="timeCats"></div>
+
+        <div class="match-section-label" style="margin-top:12px">YOUR STAKE</div>
+        <div class="stake-btns">
+          <button class="stake-btn" data-stake="100">$100</button>
+          <button class="stake-btn active" data-stake="500">$500</button>
+          <button class="stake-btn" data-stake="1000">$1,000</button>
+          <button class="stake-btn" data-stake="5000">$5,000</button>
+          <button class="stake-btn" data-stake="custom">Custom</button>
+        </div>
+        <input type="number" id="customStakeInput" class="custom-stake-input hidden" min="100" placeholder="Enter amount…">
+
+        <div class="match-section-label" style="margin-top:12px">PLAY AS</div>
+        <div class="color-btns">
+          <button class="color-btn active" data-color="w">♔ White</button>
+          <button class="color-btn"        data-color="b">♚ Black</button>
+          <button class="color-btn"        data-color="r">🎲 Random</button>
+        </div>
+      </div>
+    </div>
+
     <div id="fairMatchWarning" class="fair-match-warning hidden"></div>
 
-    <div class="setup-section">
-      <div class="setup-label">Choose Opponent</div>
-      <div class="bot-tabs">
-        <button class="bot-tab active" data-tab="casual">Casual Bots</button>
-        <button class="bot-tab" data-tab="famous">Famous Players</button>
-      </div>
-      <div class="bot-grid" id="botGrid"></div>
+    <div class="pool-preview-bar">
+      Pool: <strong id="poolPreview">$1,000</strong> &nbsp;·&nbsp;
+      You win: <strong id="winnerPreview">$950</strong> &nbsp;·&nbsp;
+      Rake: <strong id="rakePreview">$50</strong> &nbsp;·&nbsp;
+      Wallet: <strong id="walletPreview">$5,000</strong>
     </div>
 
-    <div class="setup-section">
-      <div class="setup-label">Difficulty</div>
-      <div class="diff-row" id="diffRow">
-        <button class="diff-btn" data-diff="0">Easy</button>
-        <button class="diff-btn active" data-diff="1">Normal</button>
-        <button class="diff-btn" data-diff="2">Hard</button>
-      </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-lg" id="startMatchBtn">⚔ Start Match</button>
+      <button class="btn btn-neutral btn-lg" id="analysisModeBtn2">🔍 Just Analyze</button>
     </div>
-
-    <div class="setup-section">
-      <div class="setup-label">Time Control</div>
-      <div class="time-cats" id="timeCats"></div>
-    </div>
-
-    <div class="setup-section">
-      <div class="setup-label">Match Stake <span class="setup-hint">(winner takes the pool — both sides put in equal stake)</span></div>
-      <div class="stake-presets" id="stakePresets">
-        <button class="stake-btn" data-stake="100">$100</button>
-        <button class="stake-btn active" data-stake="500">$500</button>
-        <button class="stake-btn" data-stake="1000">$1,000</button>
-        <button class="stake-btn" data-stake="5000">$5,000</button>
-        <button class="stake-btn" data-stake="custom">Custom</button>
-      </div>
-      <input type="number" id="customStakeInput" class="custom-stake-input hidden" min="10" placeholder="Enter amount…">
-      <div class="pool-preview">
-        Pool: <strong id="poolPreview">$1,000</strong> &nbsp;·&nbsp;
-        Your wallet: <strong id="walletPreview">$5,000</strong>
-      </div>
-    </div>
-
-    <div class="setup-section">
-      <div class="setup-label">Play as</div>
-      <div class="color-row" id="colorRow">
-        <button class="color-btn active" data-color="w">♔ White</button>
-        <button class="color-btn" data-color="b">♚ Black</button>
-        <button class="color-btn" data-color="r">🎲 Random</button>
-      </div>
-    </div>
-
-    <button class="btn btn-primary start-match-btn" id="startMatchBtn">Start Match</button>
-    <button class="btn analysis-mode-btn" id="analysisModeBtn">🔬 Just Analyze (no clock · no stakes · play both sides)</button>
   </div>
 </div>
 
 <!-- GAME OVER -->
 <div id="gameOverModal" class="modal-overlay hidden">
-  <div class="modal">
+  <div class="modal game-over-modal">
     <div class="modal-title"    id="gameOverTitle"></div>
     <div class="modal-sub"      id="gameOverSub"></div>
     <div class="modal-earnings" id="gameOverEarnings"></div>
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btn btn-primary"  id="gameOverRematch"  style="flex:1">🔁 Rematch</button>
-      <button class="btn btn-review"   id="gameOverReview"   style="flex:1">📽 Game Review</button>
-      <button class="btn"              id="gameOverNewGame"  style="flex:1">⚔ New Match</button>
+    <div class="modal-footer" style="flex-direction:column;gap:8px">
+      <div style="display:flex;gap:8px;width:100%">
+        <button class="btn btn-primary" id="gameOverRematch" style="flex:1">🔁 Rematch</button>
+        <button class="btn btn-review"  id="gameOverReview"  style="flex:1">📽 Game Review</button>
+      </div>
+      <button class="btn" id="gameOverNewGame" style="width:100%">⚔ New Match</button>
     </div>
   </div>
 </div>
 
 <!-- RESIGN -->
 <div id="resignModal" class="modal-overlay hidden">
-  <div class="modal">
-    <div class="modal-title">⚑ Resign?</div>
-    <div class="modal-sub">Your stake ($<span id="resignStakeDisplay">0</span>) stays in the pool — bot wins it.</div>
-    <div style="display:flex;gap:10px;margin-top:16px">
-      <button class="btn btn-danger" id="resignConfirm" style="flex:1">Yes, Resign</button>
-      <button class="btn"            id="resignCancel"  style="flex:1">Cancel</button>
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div class="modal-title">Resign?</div>
+    <div class="modal-sub">Your stake ($<span id="resignStakeDisplay">0</span>) goes to the bot.</div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="resignConfirm">Yes, Resign</button>
+      <button class="btn"            id="resignCancel">Cancel</button>
     </div>
   </div>
 </div>
 
 <!-- DRAW -->
 <div id="drawModal" class="modal-overlay hidden">
-  <div class="modal">
-    <div class="modal-title">½ Offer Draw?</div>
-    <div class="modal-sub">Both players get their stakes back. Move bonuses kept.</div>
-    <div style="display:flex;gap:10px;margin-top:16px">
-      <button class="btn btn-neutral" id="drawConfirm" style="flex:1">Offer Draw</button>
-      <button class="btn"             id="drawCancel"  style="flex:1">Cancel</button>
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div class="modal-title">Offer Draw?</div>
+    <div class="modal-sub">Stakes returned to both sides.</div>
+    <div class="modal-footer">
+      <button class="btn btn-neutral" id="drawConfirm">Offer Draw</button>
+      <button class="btn"             id="drawCancel">Cancel</button>
     </div>
   </div>
 </div>
 
 <!-- PROMOTION -->
 <div id="promotionModal" class="modal-overlay hidden">
-  <div class="modal">
-    <div class="modal-title">Promote pawn to:</div>
+  <div class="modal" style="max-width:300px;text-align:center">
+    <div class="modal-title">Promote Pawn</div>
     <div class="promo-pieces" id="promoPieces"></div>
   </div>
 </div>
@@ -267,121 +371,81 @@
   <div class="modal wallet-modal">
     <div class="modal-title">💰 Wallet</div>
     <div class="wallet-balance-big" id="walletBig">$5,000</div>
-
     <div class="wallet-tabs">
       <button class="wallet-tab active" data-wtab="deposit">Deposit</button>
       <button class="wallet-tab" data-wtab="withdraw">Withdraw</button>
       <button class="wallet-tab" data-wtab="methods">Payment Methods</button>
     </div>
-
     <div class="wallet-tab-content" id="wtabDeposit">
-      <div class="wallet-add-row">
-        <span class="small-label">Add demo funds:</span>
-        <button class="btn btn-add-funds" data-amount="500">+$500</button>
+      <div class="add-funds-row">
         <button class="btn btn-add-funds" data-amount="1000">+$1,000</button>
         <button class="btn btn-add-funds" data-amount="5000">+$5,000</button>
+        <button class="btn btn-add-funds" data-amount="10000">+$10,000</button>
       </div>
-      <div class="wallet-tx-title">Recent Transactions</div>
       <div class="wallet-tx-list" id="walletTxList"></div>
     </div>
-
     <div class="wallet-tab-content hidden" id="wtabWithdraw">
       <div class="withdraw-form">
-        <div class="form-row">
-          <label class="form-label">Amount to withdraw</label>
-          <input type="number" id="withdrawAmount" class="form-input" placeholder="Enter amount…" min="100">
-        </div>
-        <div class="form-row">
-          <label class="form-label">Withdraw to</label>
-          <select class="form-input" id="withdrawTo">
-            <option value="">— Select method —</option>
-            <option value="bank">Bank Account</option>
-            <option value="upi">UPI</option>
-          </select>
-        </div>
-        <div class="razorpay-badge">🔒 Powered by Razorpay · <em>Integration coming soon</em></div>
+        <select class="form-input" id="withdrawTo" style="margin-bottom:8px">
+          <option value="">Select method…</option>
+          <option value="upi">UPI</option>
+          <option value="bank">Bank Transfer</option>
+          <option value="card">Card</option>
+        </select>
+        <input type="number" id="withdrawAmount" class="form-input" placeholder="Amount (min $100)…" min="100">
         <button class="btn btn-primary" id="withdrawBtn" style="width:100%;margin-top:10px">Request Withdrawal</button>
         <div id="withdrawMsg" class="withdraw-msg hidden"></div>
+        <div class="razorpay-badge">🔐 Powered by Razorpay (coming soon)</div>
       </div>
     </div>
-
     <div class="wallet-tab-content hidden" id="wtabMethods">
-      <div class="payment-methods-list" id="paymentMethodsList">
-        <div class="no-methods">No payment methods added yet</div>
+      <div class="payment-methods-list" id="paymentMethodsList"></div>
+      <div class="method-type-tabs">
+        <button class="method-type-btn active" data-mtype="card">💳 Card</button>
+        <button class="method-type-btn" data-mtype="upi">📱 UPI</button>
+        <button class="method-type-btn" data-mtype="bank">🏦 Bank</button>
       </div>
-      <div class="add-method-form">
-        <div class="add-method-title">Add Payment Method</div>
-        <div class="method-type-row">
-          <button class="method-type-btn active" data-mtype="card">💳 Card</button>
-          <button class="method-type-btn" data-mtype="upi">📱 UPI</button>
-          <button class="method-type-btn" data-mtype="bank">🏦 Bank</button>
-        </div>
-        <div id="cardForm" class="method-form">
-          <input type="text" class="form-input" placeholder="Card number (16 digits)" maxlength="19" id="cardNumber">
-          <div style="display:flex;gap:8px">
-            <input type="text" class="form-input" placeholder="MM/YY" maxlength="5" style="flex:1" id="cardExpiry">
-            <input type="text" class="form-input" placeholder="CVV" maxlength="3" type="password" style="flex:1" id="cardCvv">
-          </div>
-          <input type="text" class="form-input" placeholder="Name on card" id="cardName">
-        </div>
-        <div id="upiForm" class="method-form hidden">
-          <input type="text" class="form-input" placeholder="Enter UPI ID (e.g. name@bank)" id="upiId">
-        </div>
-        <div id="bankForm" class="method-form hidden">
-          <input type="text" class="form-input" placeholder="Account number" id="bankAcct">
-          <input type="text" class="form-input" placeholder="IFSC Code" id="bankIfsc">
-          <input type="text" class="form-input" placeholder="Account holder name" id="bankName">
-        </div>
-        <div class="razorpay-badge">🔒 Razorpay secure — <em>Integration coming soon</em></div>
-        <button class="btn btn-primary" id="addMethodBtn" style="width:100%;margin-top:10px">Save Payment Method</button>
+      <div id="cardForm" class="method-form">
+        <input type="text" class="form-input" placeholder="Card number" maxlength="19" id="cardNumber">
+        <input type="text" class="form-input" placeholder="Name on card" id="cardName" style="margin-top:6px">
       </div>
+      <div id="upiForm" class="method-form hidden">
+        <input type="text" class="form-input" placeholder="UPI ID (e.g. name@bank)" id="upiId">
+      </div>
+      <div id="bankForm" class="method-form hidden">
+        <input type="text" class="form-input" placeholder="Account number" id="bankAcct">
+        <input type="text" class="form-input" placeholder="IFSC code" id="bankIfsc" style="margin-top:6px">
+      </div>
+      <button class="btn btn-primary" id="addMethodBtn" style="width:100%;margin-top:10px">Save Payment Method</button>
     </div>
-
-    <button class="btn" id="walletClose" style="width:100%;margin-top:14px">Close</button>
+    <button class="btn" id="walletClose" style="width:100%;margin-top:12px">Close</button>
   </div>
 </div>
 
 <!-- HISTORY -->
 <div id="historyModal" class="modal-overlay hidden">
-  <div class="modal history-modal">
-    <div class="modal-title">📜 Game History</div>
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title">📋 Game History</div>
     <div class="history-list" id="historyList"></div>
-    <button class="btn" id="historyClose" style="width:100%;margin-top:14px">Close</button>
+    <button class="btn" id="historyClose" style="width:100%;margin-top:12px">Close</button>
   </div>
 </div>
 
 <!-- PROFILE -->
 <div id="profileModal" class="modal-overlay hidden">
-  <div class="modal profile-modal">
+  <div class="modal" style="max-width:380px">
     <div class="modal-title">👤 Profile</div>
     <div class="profile-avatar-row">
       <div class="profile-avatar-big" id="profileAvatarBig">👤</div>
-      <div class="avatar-grid" id="avatarGrid">
-        👤 🎯 ♟ ♛ 🎭 🔥 ⚡ 🧠 🦁 🐉 🎪 🌙 ⭐ 🏆 🎮 🦊
-      </div>
+      <div class="avatar-grid" id="avatarGrid"></div>
     </div>
-    <div class="form-row">
-      <label class="form-label">Display Name</label>
-      <input type="text" id="profileNameInput" class="form-input" placeholder="Your name…" maxlength="20">
-    </div>
+    <input type="text" id="profileNameInput" class="form-input" placeholder="Your name…" maxlength="20" style="margin:10px 0">
     <div class="profile-stats-grid" id="profileStatsGrid"></div>
     <div class="elo-estimate-box" id="eloEstimateBox"></div>
-    <button class="btn btn-primary" id="saveProfileBtn" style="width:100%;margin-top:14px">Save Profile</button>
-    <button class="btn" id="profileClose" style="width:100%;margin-top:8px">Cancel</button>
-  </div>
-</div>
-
-<!-- OPENINGS LAB -->
-<div id="openingsModal" class="modal-overlay hidden">
-  <div class="modal openings-modal">
-    <div class="modal-title">📖 Openings Lab</div>
-    <div class="openings-layout">
-      <div class="openings-list" id="openingsList"></div>
-      <div class="opening-detail" id="openingDetail">
-        <div class="opening-detail-placeholder">← Select an opening to explore</div>
-      </div>
+    <div class="modal-footer" style="margin-top:12px">
+      <button class="btn btn-primary" id="saveProfileBtn">Save</button>
+      <button class="btn" id="profileClose">Cancel</button>
     </div>
-    <button class="btn" id="openingsClose" style="width:100%;margin-top:14px">Close</button>
   </div>
 </div>
 
@@ -389,53 +453,42 @@
 <div id="settingsModal" class="modal-overlay hidden">
   <div class="modal settings-modal">
     <div class="modal-title">⚙ Settings</div>
-    <div class="settings-section-title">Board Theme</div>
-    <div class="theme-picker">
-      <button class="theme-btn active" data-theme="classic">
-        <div class="theme-swatch"><div class="sw-l" style="background:#f0d9b5"></div><div class="sw-d" style="background:#b58863"></div></div>
-        <span>Classic</span>
-      </button>
-      <button class="theme-btn" data-theme="green">
-        <div class="theme-swatch"><div class="sw-l" style="background:#ffffdd"></div><div class="sw-d" style="background:#86a666"></div></div>
-        <span>Green</span>
-      </button>
-      <button class="theme-btn" data-theme="blue">
-        <div class="theme-swatch"><div class="sw-l" style="background:#dee3e6"></div><div class="sw-d" style="background:#8ca2ad"></div></div>
-        <span>Blue</span>
-      </button>
-      <button class="theme-btn" data-theme="marble">
-        <div class="theme-swatch"><div class="sw-l" style="background:#f5f0e8"></div><div class="sw-d" style="background:#6b6b6b"></div></div>
-        <span>Marble</span>
-      </button>
-    </div>
-    <div class="settings-section-title" style="margin-top:14px">Game</div>
     <div class="settings-grid">
-      <div class="setting-row">
-        <label class="setting-label">🔊 Sound</label>
+      <div class="setting-row"><span class="setting-label">Sound</span>
         <label class="toggle"><input type="checkbox" id="settingSound" checked><span class="toggle-slider"></span></label>
       </div>
-      <div class="setting-row">
-        <label class="setting-label">🎵 Volume</label>
-        <input type="range" id="settingVolume" min="0" max="100" value="70" class="vol-slider">
+      <div class="setting-row"><span class="setting-label">Volume</span>
+        <input type="range" id="settingVolume" class="vol-slider" min="0" max="100" value="70">
       </div>
-      <div class="setting-row">
-        <label class="setting-label">⚡ Premoves</label>
+      <div class="setting-row"><span class="setting-label">Premove</span>
         <label class="toggle"><input type="checkbox" id="settingPremove" checked><span class="toggle-slider"></span></label>
       </div>
-      <div class="setting-row">
-        <label class="setting-label">♛ Auto-queen</label>
+      <div class="setting-row"><span class="setting-label">Auto-queen</span>
         <label class="toggle"><input type="checkbox" id="settingAutoQueen" checked><span class="toggle-slider"></span></label>
       </div>
-      <div class="setting-row">
-        <label class="setting-label">📐 Coordinates</label>
+      <div class="setting-row"><span class="setting-label">Coordinates</span>
         <label class="toggle"><input type="checkbox" id="settingCoords" checked><span class="toggle-slider"></span></label>
       </div>
-      <div class="setting-row">
-        <label class="setting-label">🔵 Move dots</label>
+      <div class="setting-row"><span class="setting-label">Move hints</span>
         <label class="toggle"><input type="checkbox" id="settingMoveHints" checked><span class="toggle-slider"></span></label>
       </div>
     </div>
-    <button class="btn btn-primary" id="settingsClose" style="margin-top:16px;width:100%">Done</button>
+    <div class="settings-section-title" style="margin-top:12px">Board Theme</div>
+    <div class="theme-picker">
+      <button class="theme-btn active" data-theme="classic">
+        <div class="theme-swatch"><div style="background:#f0d9b5"></div><div style="background:#b58863"></div></div>Classic
+      </button>
+      <button class="theme-btn" data-theme="green">
+        <div class="theme-swatch"><div style="background:#ffffdd"></div><div style="background:#86a666"></div></div>Green
+      </button>
+      <button class="theme-btn" data-theme="blue">
+        <div class="theme-swatch"><div style="background:#dee3e6"></div><div style="background:#8ca2ad"></div></div>Blue
+      </button>
+      <button class="theme-btn" data-theme="marble">
+        <div class="theme-swatch"><div style="background:#f5f0e8"></div><div style="background:#6b6b6b"></div></div>Marble
+      </button>
+    </div>
+    <button class="btn" id="settingsClose" style="width:100%;margin-top:14px">Close</button>
   </div>
 </div>
 
