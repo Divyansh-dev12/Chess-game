@@ -1,0 +1,30 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# CODEOWNERS
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# Defines who is automatically requested to review PRs that touch specific
+# files or directories. GitHub enforces CODEOWNERS approval before merge when
+# branch protection is enabled.
+#
+# FORMAT
+#   <path-pattern>   @github-username-or-team
+#
+# MAINTENANCE
+#   Update owners when team members change roles or leave.
+#   To require CODEOWNERS review on main, enable it in:
+#   Settings → Branches → main → "Require review from Code Owners"
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Default: all files require review from the repo owner
+*                           @Divyansh-dev12
+
+# Server / API — backend changes need careful review
+server.js                   @Divyansh-dev12
+package.json                @Divyansh-dev12
+package-lock.json           @Divyansh-dev12
+
+# Game logic — the heart of the app
+public/app.js               @Divyansh-dev12
+
+# CI/CD — changes to pipelines reviewed by owner
+.github/                    @Divyansh-dev12

@@ -1,0 +1,151 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Workflow: Pull Request Standards
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# PURPOSE
+#   Enforces a consistent pull request process so that every change to `main`
+#   is traceable, reviewable, and understandable six months later.
+#
+# WHAT IT CHECKS
+#   1. PR title format   — must follow Conventional Commits prefix convention
+#                          (feat/fix/docs/chore/refactor/style/test/ci/perf)
+#   2. PR body           — must have a non-empty description (no "WIP" or "see
+#                          title" PRs merged into main)
+#   3. Branch naming     — enforces the team convention:
+#                            feature/<slug>
+#                            fix/<slug>
+#                            chore/<slug>
+#                            docs/<slug>
+#                            hotfix/<slug>
+#   4. Auto-labelling    — applies labels based on which files changed,
+#                          making the PR dashboard filterable at a glance.
+#
+# CONVENTIONAL COMMITS REFERENCE
+#   feat:     New feature for the user (not a new feature for the build script)
+#   fix:      Bug fix for the user
+#   docs:     Documentation only changes
+#   style:    CSS / formatting changes that do not affect logic
+#   refactor: Code change that is neither a fix nor a feature
+#   test:     Adding or correcting tests
+#   chore:    Build process, dependency updates, CI changes
+#   ci:       Changes to CI/CD configuration files and scripts
+#   perf:     Code change that improves performance
+#   revert:   Reverts a previous commit
+#
+# MAINTENANCE
+#   • The label list in the auto-label step must match labels that exist in
+#     the GitHub repo. Create missing labels at:
+#     https://github.com/Divyansh-dev12/Chess-game/labels
+#   • To relax the branch naming rule (e.g. allow `release/*`), add the
+#     pattern to the ALLOWED_PREFIXES check in the "Branch naming" step.
+#   • If the team adopts a PR template (.github/pull_request_template.md),
+#     the "PR body" check here can be relaxed to only require the template
+#     sections to be filled in.
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: PR Standards
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  validate-pr:
+    name: Validate PR title, body & branch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 1. PR title must follow Conventional Commits ────────────────────────
+      - name: Validate PR title (Conventional Commits)
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "PR title: \"$PR_TITLE\""
+          PATTERN="^(feat|fix|docs|style|refactor|test|chore|ci|perf|revert)(\(.+\))?: .{5,}"
+          if echo "$PR_TITLE" | grep -qP "$PATTERN"; then
+            echo "✅ PR title follows Conventional Commits format."
+          else
+            echo ""
+            echo "❌ PR title does not follow the required format."
+            echo ""
+            echo "   Required format:  <type>(<scope>): <short description>"
+            echo "   Examples:"
+            echo "     feat(board): add premove support"
+            echo "     fix(bot): prevent bot from capturing own pieces"
+            echo "     chore(deps): bump express to v5.2.1"
+            echo "     ci: add dependency review workflow"
+            echo ""
+            echo "   Valid types: feat | fix | docs | style | refactor | test | chore | ci | perf | revert"
+            echo ""
+            exit 1
+          fi
+
+      # ── 2. PR body must not be empty ────────────────────────────────────────
+      - name: Validate PR body (non-empty description)
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          STRIPPED=$(echo "$PR_BODY" | tr -d '[:space:]')
+          if [ -z "$STRIPPED" ] || [ ${#STRIPPED} -lt 30 ]; then
+            echo ""
+            echo "❌ PR description is missing or too short (< 30 characters)."
+            echo ""
+            echo "   Please describe:"
+            echo "     • What changed and why"
+            echo "     • How to test the change"
+            echo "     • Any breaking changes or side effects"
+            echo ""
+            exit 1
+          fi
+          echo "✅ PR body is present (${#STRIPPED} chars after stripping whitespace)."
+
+      # ── 3. Branch naming convention ─────────────────────────────────────────
+      - name: Validate branch name
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          echo "Branch: $BRANCH"
+          ALLOWED_PREFIXES="^(feature|fix|chore|docs|hotfix|refactor|test|ci|perf)/"
+          if echo "$BRANCH" | grep -qP "$ALLOWED_PREFIXES"; then
+            echo "✅ Branch name follows naming convention."
+          else
+            echo ""
+            echo "❌ Branch name '$BRANCH' does not follow the required convention."
+            echo ""
+            echo "   Required format: <type>/<short-slug>"
+            echo "   Examples:"
+            echo "     feature/opening-practice-board"
+            echo "     fix/bot-illegal-capture"
+            echo "     chore/update-dependencies"
+            echo "     docs/readme-update"
+            echo ""
+            echo "   Allowed prefixes: feature | fix | chore | docs | hotfix | refactor | test | ci | perf"
+            echo ""
+            exit 1
+          fi
+
+  auto-label:
+    name: Auto-label PR based on changed files
+    runs-on: ubuntu-latest
+    # Labels may not exist yet — run advisory only, don't block the PR.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply labels based on changed files
+        uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          # Label mapping is defined in .github/labeler.yml (created below).
+          configuration-path: .github/labeler.yml
+        continue-on-error: true

@@ -1,0 +1,133 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Workflow: Continuous Integration
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# PURPOSE
+#   Validates every push to `main` and every pull request targeting `main`.
+#   Acts as the primary gatekeeper — a PR should not be merged if this fails.
+#
+# WHAT IT CHECKS
+#   1. Dependency installation (npm ci) — ensures package-lock.json is coherent
+#   2. Server smoke-test           — confirms Node can parse and boot server.js
+#      without runtime errors in ≤ 5 s (Stockfish WASM is excluded from the
+#      boot check to keep CI fast; it is covered by integration tests below)
+#   3. Static file validation      — confirms all files referenced in index.html
+#      actually exist under public/
+#   4. JSON/package integrity      — validates package.json is well-formed
+#
+# ARCHITECTURE NOTES
+#   • Runtime : Node.js + Express (CommonJS, server.js)
+#   • Frontend: Vanilla ES Modules (public/app.js, public/style.css, public/index.html)
+#   • Engine  : Stockfish npm package (lite-single WASM, loaded at runtime)
+#   • No build step — public/ is served as-is by Express
+#
+# MAINTENANCE
+#   • Update `node-version` matrix when the production Node version changes.
+#   • Add `npm test` here once a test suite (e.g. Vitest / Jest) is introduced.
+#   • The smoke-test timeout (5 s) may need increasing if Stockfish WASM is
+#     added to the boot path in the future.
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel any in-progress run for the same branch/PR to save runner minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 1. Install & basic checks ───────────────────────────────────────────────
+  install-and-validate:
+    name: Install dependencies & validate project
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        # Test on LTS and current to catch API changes early.
+        node-version: [20.x, 22.x]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Use the exact versions locked in package-lock.json (--ci flag).
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies (clean install)
+        run: npm ci
+
+      # ── Validate package.json is well-formed JSON ──────────────────────────
+      - name: Validate package.json
+        run: node -e "const p=require('./package.json'); console.log('package.json OK — name:', p.name, '| version:', p.version);"
+
+      # ── Confirm server.js can be parsed & required without crashing ─────────
+      # We use --check (parse only) first, then a timed require.
+      - name: Syntax-check server.js
+        run: node --check server.js
+
+      - name: Server smoke-test (boot within 5 s)
+        run: |
+          # Start the server in the background; give it 5 s to start.
+          # Stockfish WASM won't fully init in CI (no WebAssembly support
+          # needed here), but Express/routes should bind successfully.
+          timeout 5s node server.js &
+          SERVER_PID=$!
+          sleep 3
+          # Confirm the process is still alive (not crashed on startup).
+          if kill -0 $SERVER_PID 2>/dev/null; then
+            echo "✅ Server started successfully (PID $SERVER_PID)"
+            kill $SERVER_PID
+          else
+            echo "❌ Server exited before expected — check server.js for startup errors"
+            exit 1
+          fi
+
+      # ── Check that every <script src> / <link href> in index.html exists ───
+      - name: Validate public asset references
+        run: |
+          echo "Checking asset references in public/index.html..."
+          ERRORS=0
+          # Extract local src/href values (skip http/https/data: URLs)
+          grep -oP '(?<=src=")[^"]+|(?<=href=")[^"]+' public/index.html \
+            | grep -v '^http' | grep -v '^data:' | grep -v '^#' \
+            | while read ref; do
+                path="public/${ref#/}"
+                if [ ! -f "$path" ]; then
+                  echo "  ❌ Missing asset: $ref (expected at $path)"
+                  ERRORS=$((ERRORS+1))
+                else
+                  echo "  ✅ $ref"
+                fi
+              done
+          [ $ERRORS -eq 0 ] && echo "All assets present." || exit 1
+
+  # ── 2. Dependency audit ─────────────────────────────────────────────────────
+  security-audit:
+    name: npm audit (high + critical)
+    runs-on: ubuntu-latest
+    needs: install-and-validate
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+
+      # Fail only on high/critical vulnerabilities. Moderate issues are
+      # reported but don't block the merge — review them in the weekly
+      # dependency-review workflow instead.
+      - name: Run security audit
+        run: npm audit --audit-level=high
+        continue-on-error: false

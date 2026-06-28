@@ -1,0 +1,234 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Workflow: Release & Deploy
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# PURPOSE
+#   Tags a versioned release and prepares a deployment artifact whenever a
+#   commit is pushed to `main` with a version bump in package.json.
+#   Also supports manual deploys via workflow_dispatch.
+#
+# DEPLOYMENT TARGETS (configure one — others can be added later)
+#   A. Railway  — recommended for this project (Node + persistent server)
+#      Set RAILWAY_TOKEN in repo secrets and uncomment the Railway step.
+#   B. Render   — alternative PaaS, similar setup
+#   C. VPS/Self-hosted — SSH deploy via rsync (uncomment the SSH step)
+#
+# WHAT IT DOES
+#   1. Detects whether package.json version changed compared to the last tag.
+#   2. If yes → creates a GitHub Release with an auto-generated changelog.
+#   3. Uploads a deployment artifact (source minus node_modules, minus WASM).
+#   4. (Optional) Triggers deployment to configured host.
+#
+# ARCHITECTURE NOTES
+#   • No build step — public/ is served directly by Express. The artifact
+#     is simply the source tree; `npm ci --production` on the host installs deps.
+#   • Stockfish WASM is installed via npm on the host — it must NOT be bundled
+#     in the artifact (it would exceed GitHub's 2 GB release asset limit).
+#   • The server binds to process.env.PORT (default 3000). Set PORT on the
+#     host to whatever the platform requires (Railway sets it automatically).
+#
+# REQUIRED SECRETS (set in Settings → Secrets → Actions)
+#   RAILWAY_TOKEN  — Railway deploy token (if using Railway)
+#   DEPLOY_HOST    — hostname/IP for SSH deploy
+#   DEPLOY_USER    — SSH username
+#   DEPLOY_KEY     — SSH private key (base64 encoded)
+#   DEPLOY_PATH    — remote path to deploy to
+#
+# MAINTENANCE
+#   • Bump the version in package.json using `npm version patch|minor|major`
+#     before pushing to main. This workflow detects the bump and creates a tag.
+#   • The changelog is auto-generated from commit messages — Conventional
+#     Commits format (enforced by pr-standards.yml) makes it readable.
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: Release & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deploy even without a version bump'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # needed to create releases and tags
+
+jobs:
+  # ── 1. Detect version change ────────────────────────────────────────────────
+  check-version:
+    name: Check for version bump
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      should_release: ${{ steps.version.outputs.should_release }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history needed to compare tags
+
+      - name: Detect version bump
+        id: version
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          echo "Current package.json version: $CURRENT"
+
+          # Check if a tag for this version already exists
+          if git rev-parse "v$CURRENT" >/dev/null 2>&1; then
+            echo "Tag v$CURRENT already exists — no new release needed."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version detected: v$CURRENT"
+            echo "new_version=$CURRENT" >> $GITHUB_OUTPUT
+            echo "should_release=true"  >> $GITHUB_OUTPUT
+          fi
+
+          # Override if manual dispatch with force_deploy
+          if [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+            echo "Force deploy requested."
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
+  # ── 2. Create release artifact & GitHub Release ────────────────────────────
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install production dependencies only
+        run: npm ci --production
+
+      # ── Build deployment archive ─────────────────────────────────────────
+      # Excludes: node_modules (installed on host), WASM files (too large),
+      # dev-only files, and git metadata.
+      - name: Build deployment archive
+        run: |
+          VERSION=${{ needs.check-version.outputs.new_version }}
+          ARCHIVE="chess-arena-v${VERSION}.tar.gz"
+
+          tar -czf "$ARCHIVE" \
+            --exclude='node_modules/.cache' \
+            --exclude='node_modules/stockfish/bin/stockfish-18.wasm' \
+            --exclude='node_modules/stockfish/bin/stockfish-18-single.wasm' \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='*.test.js' \
+            --exclude='.DS_Store' \
+            .
+
+          echo "Archive size: $(du -sh $ARCHIVE | cut -f1)"
+          echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      # ── Generate changelog from commits since last tag ───────────────────
+      - name: Generate changelog
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            RANGE="${LAST_TAG}..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+
+          echo "## What's Changed" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          # Group by Conventional Commits type
+          for TYPE in feat fix perf refactor docs chore ci style test; do
+            COMMITS=$(git log $RANGE --oneline --grep="^${TYPE}" --pretty="%s" 2>/dev/null || true)
+            if [ -n "$COMMITS" ]; then
+              case $TYPE in
+                feat)     echo "### ✨ New Features" >> CHANGELOG.md ;;
+                fix)      echo "### 🐛 Bug Fixes"    >> CHANGELOG.md ;;
+                perf)     echo "### ⚡ Performance"  >> CHANGELOG.md ;;
+                refactor) echo "### ♻️  Refactoring"  >> CHANGELOG.md ;;
+                docs)     echo "### 📖 Documentation" >> CHANGELOG.md ;;
+                chore|ci) echo "### 🔧 Maintenance"  >> CHANGELOG.md ;;
+                *)        echo "### 🔀 Other"         >> CHANGELOG.md ;;
+              esac
+              echo "$COMMITS" | while read line; do echo "- $line"; done >> CHANGELOG.md
+              echo "" >> CHANGELOG.md
+            fi
+          done
+
+          cat CHANGELOG.md
+
+      # ── Create Git tag ───────────────────────────────────────────────────
+      - name: Create version tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
+
+      # ── Create GitHub Release ────────────────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: Chess Arena v${{ env.VERSION }}
+          body_path: CHANGELOG.md
+          files: ${{ env.ARCHIVE }}
+          draft: false
+          prerelease: false
+
+  # ── 3. Deploy (configure one target below) ─────────────────────────────────
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    needs: [check-version, release]
+    if: needs.check-version.outputs.should_release == 'true'
+    environment: production   # requires manual approval gate if configured
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── OPTION A: Railway ────────────────────────────────────────────────
+      # Uncomment when RAILWAY_TOKEN is set in repo secrets.
+      # Railway auto-detects Node.js, runs `npm ci` and `node server.js`.
+      #
+      # - name: Deploy to Railway
+      #   uses: railwayapp/railway-github-action@v1
+      #   with:
+      #     railway-token: ${{ secrets.RAILWAY_TOKEN }}
+
+      # ── OPTION B: SSH / VPS deploy ───────────────────────────────────────
+      # Uncomment and configure DEPLOY_* secrets in repo settings.
+      #
+      # - name: Deploy via SSH
+      #   uses: appleboy/ssh-action@v1
+      #   with:
+      #     host:     ${{ secrets.DEPLOY_HOST }}
+      #     username: ${{ secrets.DEPLOY_USER }}
+      #     key:      ${{ secrets.DEPLOY_KEY }}
+      #     script: |
+      #       cd ${{ secrets.DEPLOY_PATH }}
+      #       git pull origin main
+      #       npm ci --production
+      #       pm2 restart chess-arena || pm2 start server.js --name chess-arena
+
+      # ── Placeholder (remove once a deploy target is configured) ──────────
+      - name: Deploy placeholder
+        run: |
+          echo "──────────────────────────────────────────"
+          echo "  Chess Arena v${{ needs.check-version.outputs.new_version }}"
+          echo "  Release artifact created successfully."
+          echo ""
+          echo "  To enable auto-deploy:"
+          echo "  1. Set RAILWAY_TOKEN secret and uncomment Railway step, OR"
+          echo "  2. Set DEPLOY_HOST/USER/KEY/PATH secrets and uncomment SSH step."
+          echo "──────────────────────────────────────────"

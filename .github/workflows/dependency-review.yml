@@ -1,0 +1,109 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Workflow: Dependency Review
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# PURPOSE
+#   Reviews dependency changes introduced by a pull request BEFORE they are
+#   merged into main. Catches newly added packages that carry known
+#   vulnerabilities or use problematic licences.
+#
+# WHEN IT RUNS
+#   Only on pull_request events — it compares the PR's package-lock.json
+#   against the base branch and flags anything new that is risky.
+#
+# WHAT IT CHECKS
+#   1. GitHub Dependency Review Action
+#      • Blocks merge if a newly added/updated dependency has a CVE rated
+#        HIGH or CRITICAL.
+#      • Warns on MODERATE vulnerabilities (advisory only).
+#      • Denies licences that are GPL-incompatible or business-hostile.
+#
+#   2. Lock-file consistency check
+#      • Confirms package-lock.json is in sync with package.json.
+#        A drift here means someone ran `npm install` instead of `npm ci`
+#        and may have silently upgraded packages.
+#
+# ARCHITECTURE NOTES
+#   • The project uses three production dependencies:
+#       - express        : MIT  ✅
+#       - chess.js       : MIT  ✅  (BSD-style, permissive)
+#       - stockfish      : GPL-3.0 ⚠  (Stockfish engine is GPL)
+#         → The GPL applies to the engine binary/WASM only, not to your
+#           app code when used as a tool. Running it server-side via npm
+#           is standard practice. Do not re-distribute the binary separately.
+#   • If a Razorpay / payment SDK is added in future, verify its licence
+#     before shipping.
+#
+# MAINTENANCE
+#   • To allow additional licences (e.g. LGPL for a specific package),
+#     add them to `allow-licenses` below.
+#   • To allow a specific CVE that you've assessed as not exploitable in
+#     this context, add it to `allow-ghsas` (use sparingly and document why).
+#   • Bump the action version pin periodically:
+#       actions/dependency-review-action@v4  →  latest release
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [main]
+    # Only run when lock-file or manifest changes — saves runner time.
+    paths:
+      - package.json
+      - package-lock.json
+
+permissions:
+  contents: read
+  pull-requests: write   # Allows the action to post a comment on the PR
+
+jobs:
+  review:
+    name: Review dependency changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      # ── GitHub's official dependency review action ──────────────────────────
+      # Docs: https://github.com/actions/dependency-review-action
+      - name: Run Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          # Block merge on HIGH or CRITICAL vulnerabilities in new deps.
+          fail-on-severity: high
+
+          # Permitted licences — MIT and Apache cover all current dependencies.
+          # GPL-3.0 is explicitly allowed here because Stockfish (the chess
+          # engine) is GPL-licensed; this is intentional and documented above.
+          allow-licenses: >-
+            MIT,
+            Apache-2.0,
+            BSD-2-Clause,
+            BSD-3-Clause,
+            ISC,
+            GPL-3.0,
+            GPL-3.0-or-later
+
+          # Post a summary comment on the PR for visibility.
+          comment-summary-in-pr: always
+
+      # ── Lock-file consistency ───────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Check package-lock.json is in sync with package.json
+        run: |
+          # npm ci is stricter than npm install — it fails if package-lock.json
+          # does not satisfy package.json. This catches cases where a developer
+          # added a dependency to package.json but forgot to commit the updated
+          # lock file, or vice versa.
+          echo "Verifying package-lock.json matches package.json..."
+          npm ci --dry-run 2>&1 | grep -E "^(npm warn|npm error)" | head -20 || true
+          # A clean npm ci (real) confirms coherence.
+          npm ci
+          echo "✅ Lock file is consistent with package.json"
