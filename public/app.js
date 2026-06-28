@@ -288,7 +288,7 @@ class ChessGame {
 
   // ── SETTINGS ─────────────────────────────────────────────────────────
   _loadSettings() {
-    try { const s=JSON.parse(localStorage.getItem(SETTINGS_KEY)); if(s) Object.assign(this.settings,s); } catch {}
+    try { const s=JSON.parse(localStorage.getItem(SETTINGS_KEY)); if(s) Object.assign(this.settings,s); } catch { /* ignore bad JSON */ }
     this._applyTheme(this.settings.theme);
     const s=this.settings;
     document.getElementById('settingSound').checked     = s.sound;
@@ -1517,7 +1517,7 @@ class ChessGame {
     try {
       const r=await engineEval(this.chess.fen(),400);
       evalAfter=r?.score??0; bestUci=r?.bestMove;
-    } catch {}
+    } catch { /* engine offline */ }
 
     // cpLoss from mover's perspective (positive = worse for mover)
     const moverSign = move.color==='w'?1:-1;
@@ -1534,7 +1534,7 @@ class ChessGame {
     try {
       const opMoves = this.chess.moves({verbose:true});
       isPieceSacrificed = opMoves.some(m=>m.to===move.to && m.captured);
-    } catch {}
+    } catch { /* position already checkmate/stalemate */ }
 
     // Was position already bad before (mover was losing by 150+ cp)?
     const wasInDifficulty = cpBefore < -150;
